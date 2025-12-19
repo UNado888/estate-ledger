@@ -3,7 +3,7 @@ import { Plus, Search, Filter, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PropertyCard } from '@/components/PropertyCard';
-import { mockProperties as initialProperties } from '@/data/mockData';
+import { mockProperties as initialProperties, mockTenants } from '@/data/mockData';
 import { Property } from '@/types';
 import {
   Select,
@@ -45,6 +45,13 @@ export default function PropertyPortfolio() {
 
   const handleAddProperty = (newProperty: Property) => {
     setProperties(prev => [...prev, newProperty]);
+  };
+
+  const handleUpdateProperty = (updatedProperty: Property) => {
+    setProperties(prev => 
+      prev.map(p => p.id === updatedProperty.id ? updatedProperty : p)
+    );
+    setSelectedProperty(updatedProperty);
   };
 
   return (
@@ -146,7 +153,9 @@ export default function PropertyPortfolio() {
       {selectedProperty && (
         <PropertyDetailModal 
           property={selectedProperty} 
-          onClose={() => setSelectedProperty(null)} 
+          onClose={() => setSelectedProperty(null)}
+          onUpdateProperty={handleUpdateProperty}
+          allTenants={mockTenants}
         />
       )}
 

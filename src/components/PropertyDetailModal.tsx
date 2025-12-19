@@ -1,10 +1,20 @@
-import { Property } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, FileText, Package } from 'lucide-react';
+import { useState } from 'react';
+import { Property, Tenant, RentalHistory } from '@/types';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { mockTenants, mockFurniture, mockRentalHistory } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { AssignTenantModal } from './AssignTenantModal';
+import { toast } from 'sonner';
 import {
   AreaChart, 
   Area, 
@@ -18,6 +28,8 @@ import {
 interface PropertyDetailModalProps {
   property: Property;
   onClose: () => void;
+  onUpdateProperty?: (updatedProperty: Property) => void;
+  allTenants?: Tenant[];
 }
 
 const statusConfig = {
@@ -27,19 +39,37 @@ const statusConfig = {
   sale: { label: 'À Venda', className: 'bg-primary text-primary-foreground' },
 };
 
-export function PropertyDetailModal({ property, onClose }: PropertyDetailModalProps) {
-  const status = statusConfig[property.status];
-  const currentTenant = property.currentTenantId 
-    ? mockTenants.find(t => t.id === property.currentTenantId)
-    : null;
-  const furniture = mockFurniture.filter(f => f.propertyId === property.id);
-  const rentalHistory = mockRentalHistory.filter(r => r.propertyId === property.id);
+const statusOptions = [
+  { value: 'rented', label: 'Alugado' },
+  { value: 'vacant', label: 'Vago' },
+  { value: 'renovation', label: 'Em Reforma' },
+  { value: 'sale', label: 'À Venda' },
+];
 
-  const totalInvestment = property.acquisitionCost + property.renovationCost;
-  const equity = property.currentMarketValue - totalInvestment;
+export function PropertyDetailModal({ 
+  property, 
+  onClose, 
+  onUpdateProperty,
+  allTenants = mockTenants 
+}: PropertyDetailModalProps) {
+  const [currentProperty, setCurrentProperty] = useState(property);
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [showAssignTenant, setShowAssignTenant] = useState(false);
+  const [rentalHistoryState, setRentalHistoryState] = useState<RentalHistory[]>(
+    mockRentalHistory.filter(r => r.propertyId === property.id)
+  );
+
+  const status = statusConfig[currentProperty.status];
+  const currentTenant = currentProperty.currentTenantId 
+    ? allTenants.find(t => t.id === currentProperty.currentTenantId)
+    : null;
+  const furniture = mockFurniture.filter(f => f.propertyId === currentProperty.id);
+
+  const totalInvestment = currentProperty.acquisitionCost + currentProperty.renovationCost;
+  const equity = currentProperty.currentMarketValue - totalInvestment;
   const equityPercent = ((equity / totalInvestment) * 100).toFixed(1);
-  const roi = ((property.monthlyRent * 12) / totalInvestment * 100).toFixed(2);
-  const netMonthly = property.monthlyRent - property.iptu - property.condoFee;
+  const roi = ((currentProperty.monthlyRent * 12) / totalInvestment * 100).toFixed(2);
+  const netMonthly = currentProperty.monthlyRent - currentProperty.iptu - currentProperty.condoFee;
   const paybackYears = (totalInvestment / (netMonthly * 12)).toFixed(1);
 
   const formatCurrency = (value: number) => {
@@ -57,6 +87,86 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
     };
   });
 
+  const handleStatusChange = (newStatus: Property['status']) => {
+    const updatedProperty = { ...currentProperty, status: newStatus };
+    
+    // If changing to vacant, remove current tenant
+    if (newStatus === 'vacant' && currentProperty.currentTenantId) {
+      updatedProperty.currentTenantId = undefined;
+      
+      // Close current rental in history
+      setRentalHistoryState(prev => 
+        prev.map(r => 
+          r.tenantId === currentProperty.currentTenantId && !r.endDate
+            ? { ...r, endDate: new Date().toISOString().split('T')[0] }
+            : r
+        )
+      );
+    }
+    
+    setCurrentProperty(updatedProperty);
+    onUpdateProperty?.(updatedProperty);
+    setIsEditingStatus(false);
+    toast.success(`Status alterado para "${statusOptions.find(s => s.value === newStatus)?.label}"`);
+  };
+
+  const handleAssignTenant = (tenantId: string, rentalData: Omit<RentalHistory, 'id' | 'paymentHistory'>) => {
+    // Close any existing active rental
+    if (currentProperty.currentTenantId) {
+      setRentalHistoryState(prev => 
+        prev.map(r => 
+          r.tenantId === currentProperty.currentTenantId && !r.endDate
+            ? { ...r, endDate: new Date().toISOString().split('T')[0] }
+            : r
+        )
+      );
+    }
+
+    // Add new rental history entry
+    const newRental: RentalHistory = {
+      id: Date.now().toString(),
+      propertyId: rentalData.propertyId,
+      tenantId: rentalData.tenantId,
+      startDate: rentalData.startDate,
+      monthlyRent: rentalData.monthlyRent,
+      paymentHistory: [],
+    };
+    setRentalHistoryState(prev => [newRental, ...prev]);
+
+    // Update property with new tenant and set to rented
+    const updatedProperty = { 
+      ...currentProperty, 
+      currentTenantId: tenantId,
+      status: 'rented' as Property['status'],
+      monthlyRent: rentalData.monthlyRent
+    };
+    setCurrentProperty(updatedProperty);
+    onUpdateProperty?.(updatedProperty);
+  };
+
+  const handleRemoveTenant = () => {
+    if (!currentProperty.currentTenantId) return;
+
+    // Close current rental in history
+    setRentalHistoryState(prev => 
+      prev.map(r => 
+        r.tenantId === currentProperty.currentTenantId && !r.endDate
+          ? { ...r, endDate: new Date().toISOString().split('T')[0] }
+          : r
+      )
+    );
+
+    // Update property
+    const updatedProperty = { 
+      ...currentProperty, 
+      currentTenantId: undefined,
+      status: 'vacant' as Property['status']
+    };
+    setCurrentProperty(updatedProperty);
+    onUpdateProperty?.(updatedProperty);
+    toast.success('Inquilino removido do imóvel');
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
@@ -66,12 +176,38 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
         <div className="p-6 border-b border-border flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-xl font-display font-bold text-foreground">{property.name}</h2>
-              <Badge className={status.className}>{status.label}</Badge>
+              <h2 className="text-xl font-display font-bold text-foreground">{currentProperty.name}</h2>
+              
+              {/* Status Badge with Edit */}
+              {isEditingStatus ? (
+                <Select 
+                  value={currentProperty.status} 
+                  onValueChange={(v) => handleStatusChange(v as Property['status'])}
+                >
+                  <SelectTrigger className="w-[140px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    {statusOptions.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <button
+                  onClick={() => setIsEditingStatus(true)}
+                  className="group flex items-center gap-1.5"
+                >
+                  <Badge className={cn(status.className, "transition-all group-hover:opacity-80")}>
+                    {status.label}
+                  </Badge>
+                  <Edit2 className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <MapPin className="w-4 h-4" />
-              <span>{property.address}, {property.city}</span>
+              <span>{currentProperty.address}, {currentProperty.city}</span>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -94,22 +230,22 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-secondary/50 rounded-lg p-4 text-center">
                   <Bed className="w-5 h-5 mx-auto text-primary mb-2" />
-                  <p className="text-2xl font-bold text-foreground">{property.bedrooms}</p>
+                  <p className="text-2xl font-bold text-foreground">{currentProperty.bedrooms}</p>
                   <p className="text-xs text-muted-foreground">Quartos</p>
                 </div>
                 <div className="bg-secondary/50 rounded-lg p-4 text-center">
                   <Bath className="w-5 h-5 mx-auto text-primary mb-2" />
-                  <p className="text-2xl font-bold text-foreground">{property.bathrooms}</p>
+                  <p className="text-2xl font-bold text-foreground">{currentProperty.bathrooms}</p>
                   <p className="text-xs text-muted-foreground">Banheiros</p>
                 </div>
                 <div className="bg-secondary/50 rounded-lg p-4 text-center">
                   <Car className="w-5 h-5 mx-auto text-primary mb-2" />
-                  <p className="text-2xl font-bold text-foreground">{property.parkingSpaces}</p>
+                  <p className="text-2xl font-bold text-foreground">{currentProperty.parkingSpaces}</p>
                   <p className="text-xs text-muted-foreground">Vagas</p>
                 </div>
                 <div className="bg-secondary/50 rounded-lg p-4 text-center">
                   <Package className="w-5 h-5 mx-auto text-primary mb-2" />
-                  <p className="text-2xl font-bold text-foreground">{property.usefulArea}</p>
+                  <p className="text-2xl font-bold text-foreground">{currentProperty.usefulArea}</p>
                   <p className="text-xs text-muted-foreground">m² úteis</p>
                 </div>
               </div>
@@ -121,7 +257,7 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                     <DollarSign className="w-4 h-4" />
                     <span className="text-sm">Aluguel Mensal</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{formatCurrency(property.monthlyRent)}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(currentProperty.monthlyRent)}</p>
                   <p className="text-sm text-muted-foreground">Líquido: {formatCurrency(netMonthly)}</p>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-4">
@@ -137,8 +273,8 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm">Aquisição</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{new Date(property.acquisitionDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</p>
-                  <p className="text-sm text-muted-foreground">{formatCurrency(property.acquisitionCost)}</p>
+                  <p className="text-2xl font-bold text-foreground">{new Date(currentProperty.acquisitionDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</p>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(currentProperty.acquisitionCost)}</p>
                 </div>
               </div>
             </TabsContent>
@@ -176,32 +312,43 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                 <div className="space-y-3">
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">Receita Bruta</span>
-                    <span className="font-medium text-foreground">{formatCurrency(property.monthlyRent)}</span>
+                    <span className="font-medium text-foreground">{formatCurrency(currentProperty.monthlyRent)}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border text-destructive">
                     <span>(-) IPTU</span>
-                    <span>{formatCurrency(property.iptu)}</span>
+                    <span>{formatCurrency(currentProperty.iptu)}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border text-destructive">
                     <span>(-) Condomínio</span>
-                    <span>{formatCurrency(property.condoFee)}</span>
+                    <span>{formatCurrency(currentProperty.condoFee)}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border text-destructive">
                     <span>(-) IR (estimado)</span>
-                    <span>{formatCurrency(property.monthlyRent * 0.05)}</span>
+                    <span>{formatCurrency(currentProperty.monthlyRent * 0.05)}</span>
                   </div>
                   <div className="flex justify-between py-3 bg-success/10 rounded-lg px-3">
                     <span className="font-semibold text-success">Lucro Líquido</span>
-                    <span className="font-bold text-success">{formatCurrency(netMonthly - property.monthlyRent * 0.05)}</span>
+                    <span className="font-bold text-success">{formatCurrency(netMonthly - currentProperty.monthlyRent * 0.05)}</span>
                   </div>
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="tenant" className="space-y-6">
+              {/* Current Tenant */}
               {currentTenant ? (
                 <div className="bg-secondary/30 rounded-xl p-5">
-                  <h3 className="font-semibold text-foreground mb-4">Inquilino Atual</h3>
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="font-semibold text-foreground">Inquilino Atual</h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleRemoveTenant}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      Encerrar Contrato
+                    </Button>
+                  </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Nome</span>
@@ -215,25 +362,45 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
                       <span className="text-muted-foreground">Contato</span>
                       <span className="text-foreground">{currentTenant.phone}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">E-mail</span>
+                      <span className="text-foreground">{currentTenant.email}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  Sem inquilino ativo
+                <div className="text-center py-8 bg-secondary/30 rounded-xl">
+                  <p className="text-muted-foreground mb-4">Sem inquilino ativo</p>
+                  <Button onClick={() => setShowAssignTenant(true)} className="gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    Vincular Inquilino
+                  </Button>
                 </div>
+              )}
+
+              {/* Add Tenant Button if there's already one */}
+              {currentTenant && (
+                <Button 
+                  onClick={() => setShowAssignTenant(true)} 
+                  variant="outline"
+                  className="w-full gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Trocar Inquilino
+                </Button>
               )}
 
               {/* Rental History */}
               <div className="bg-secondary/30 rounded-xl p-5">
                 <h3 className="font-semibold text-foreground mb-4">Histórico de Locações</h3>
-                {rentalHistory.length > 0 ? (
+                {rentalHistoryState.length > 0 ? (
                   <div className="space-y-3">
-                    {rentalHistory.map((rental) => {
-                      const tenant = mockTenants.find(t => t.id === rental.tenantId);
+                    {rentalHistoryState.map((rental) => {
+                      const tenant = allTenants.find(t => t.id === rental.tenantId);
                       return (
                         <div key={rental.id} className="flex justify-between items-center py-2 border-b border-border">
                           <div>
-                            <p className="font-medium text-foreground">{tenant?.name}</p>
+                            <p className="font-medium text-foreground">{tenant?.name || 'Inquilino Removido'}</p>
                             <p className="text-sm text-muted-foreground">
                               {new Date(rental.startDate).toLocaleDateString('pt-BR')} - {rental.endDate ? new Date(rental.endDate).toLocaleDateString('pt-BR') : 'Atual'}
                             </p>
@@ -291,6 +458,16 @@ export function PropertyDetailModal({ property, onClose }: PropertyDetailModalPr
           </Tabs>
         </div>
       </div>
+
+      {/* Assign Tenant Modal */}
+      <AssignTenantModal
+        open={showAssignTenant}
+        onClose={() => setShowAssignTenant(false)}
+        propertyId={currentProperty.id}
+        propertyName={currentProperty.name}
+        tenants={allTenants}
+        onAssign={handleAssignTenant}
+      />
     </div>
   );
 }
