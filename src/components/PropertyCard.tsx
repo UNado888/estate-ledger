@@ -1,6 +1,6 @@
 import { Property } from '@/types';
 import { cn } from '@/lib/utils';
-import { MapPin, Bed, Bath, Car, TrendingUp, Building2, Home, Store, Mountain } from 'lucide-react';
+import { MapPin, Bed, Bath, Car, TrendingUp, Building2, Home, Store, Mountain, Warehouse } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface PropertyCardProps {
@@ -15,11 +15,12 @@ const statusConfig = {
   sale: { label: 'À Venda', variant: 'default' as const },
 };
 
-const typeIcons = {
+const typeIcons: Record<Property['type'], React.ComponentType<{ className?: string }>> = {
   apartment: Building2,
   house: Home,
   commercial: Store,
   land: Mountain,
+  kitnet: Warehouse,
 };
 
 export function PropertyCard({ property, onClick }: PropertyCardProps) {
