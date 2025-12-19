@@ -3,7 +3,7 @@ export interface Property {
   name: string;
   address: string;
   city: string;
-  type: 'apartment' | 'house' | 'commercial' | 'land';
+  type: 'apartment' | 'house' | 'commercial' | 'land' | 'kitnet';
   status: 'rented' | 'vacant' | 'renovation' | 'sale';
   totalArea: number;
   usefulArea: number;

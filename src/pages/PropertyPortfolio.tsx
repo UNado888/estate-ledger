@@ -3,7 +3,7 @@ import { Plus, Search, Filter, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PropertyCard } from '@/components/PropertyCard';
-import { mockProperties } from '@/data/mockData';
+import { mockProperties as initialProperties } from '@/data/mockData';
 import { Property } from '@/types';
 import {
   Select,
@@ -13,15 +13,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PropertyDetailModal } from '@/components/PropertyDetailModal';
+import { AddPropertyModal } from '@/components/AddPropertyModal';
 
 export default function PropertyPortfolio() {
+  const [properties, setProperties] = useState<Property[]>(initialProperties);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  const filteredProperties = mockProperties.filter(property => {
+  const filteredProperties = properties.filter(property => {
     const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          property.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          property.city.toLowerCase().includes(searchTerm.toLowerCase());
@@ -40,6 +43,10 @@ export default function PropertyPortfolio() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const handleAddProperty = (newProperty: Property) => {
+    setProperties(prev => [...prev, newProperty]);
+  };
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
@@ -50,7 +57,7 @@ export default function PropertyPortfolio() {
             {filteredProperties.length} imóveis • Valor total: {formatCurrency(totalValue)} • ROI médio: {avgRoi.toFixed(2)}%
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setShowAddModal(true)}>
           <Plus className="w-4 h-4" />
           Novo Imóvel
         </Button>
@@ -88,8 +95,9 @@ export default function PropertyPortfolio() {
           <SelectContent>
             <SelectItem value="all">Todos Tipos</SelectItem>
             <SelectItem value="apartment">Apartamento</SelectItem>
+            <SelectItem value="kitnet">Kitnet</SelectItem>
             <SelectItem value="house">Casa</SelectItem>
-            <SelectItem value="commercial">Comercial</SelectItem>
+            <SelectItem value="commercial">Sala Comercial</SelectItem>
             <SelectItem value="land">Terreno</SelectItem>
           </SelectContent>
         </Select>
@@ -141,6 +149,13 @@ export default function PropertyPortfolio() {
           onClose={() => setSelectedProperty(null)} 
         />
       )}
+
+      {/* Add Property Modal */}
+      <AddPropertyModal 
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddProperty}
+      />
     </div>
   );
 }

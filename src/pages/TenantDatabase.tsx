@@ -3,7 +3,8 @@ import { Plus, Search, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TenantCard } from '@/components/TenantCard';
-import { mockTenants } from '@/data/mockData';
+import { mockTenants as initialTenants } from '@/data/mockData';
+import { Tenant } from '@/types';
 import {
   Select,
   SelectContent,
@@ -11,13 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AddTenantModal } from '@/components/AddTenantModal';
 
 export default function TenantDatabase() {
+  const [tenants, setTenants] = useState<Tenant[]>(initialTenants);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  const filteredTenants = mockTenants.filter(tenant => {
+  const filteredTenants = tenants.filter(tenant => {
     const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tenant.document.includes(searchTerm) ||
                          tenant.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -26,9 +30,13 @@ export default function TenantDatabase() {
     return matchesSearch && matchesStatus && matchesRating;
   });
 
-  const activeCount = mockTenants.filter(t => t.status === 'active').length;
-  const formerCount = mockTenants.filter(t => t.status === 'former').length;
-  const candidateCount = mockTenants.filter(t => t.status === 'candidate').length;
+  const activeCount = tenants.filter(t => t.status === 'active').length;
+  const formerCount = tenants.filter(t => t.status === 'former').length;
+  const candidateCount = tenants.filter(t => t.status === 'candidate').length;
+
+  const handleAddTenant = (newTenant: Tenant) => {
+    setTenants(prev => [...prev, newTenant]);
+  };
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -40,7 +48,7 @@ export default function TenantDatabase() {
             {activeCount} ativos • {formerCount} antigos • {candidateCount} candidatos
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setShowAddModal(true)}>
           <Plus className="w-4 h-4" />
           Novo Inquilino
         </Button>
@@ -107,6 +115,13 @@ export default function TenantDatabase() {
           <p className="text-muted-foreground">Nenhum inquilino encontrado com os filtros selecionados.</p>
         </div>
       )}
+
+      {/* Add Tenant Modal */}
+      <AddTenantModal 
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddTenant}
+      />
     </div>
   );
 }
