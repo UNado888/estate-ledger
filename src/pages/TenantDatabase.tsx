@@ -13,6 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AddTenantModal } from '@/components/AddTenantModal';
+import { EditTenantModal } from '@/components/EditTenantModal';
+import { TenantDetailModal } from '@/components/TenantDetailModal';
+import { toast } from 'sonner';
 
 export default function TenantDatabase() {
   const [tenants, setTenants] = useState<Tenant[]>(initialTenants);
@@ -20,6 +23,8 @@ export default function TenantDatabase() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
 
   const filteredTenants = tenants.filter(tenant => {
     const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -36,6 +41,27 @@ export default function TenantDatabase() {
 
   const handleAddTenant = (newTenant: Tenant) => {
     setTenants(prev => [...prev, newTenant]);
+  };
+
+  const handleUpdateTenant = (updatedTenant: Tenant) => {
+    setTenants(prev => 
+      prev.map(t => t.id === updatedTenant.id ? updatedTenant : t)
+    );
+    setSelectedTenant(updatedTenant);
+    setEditingTenant(null);
+  };
+
+  const handleDeleteTenant = (tenantId: string) => {
+    setTenants(prev => prev.filter(t => t.id !== tenantId));
+    setSelectedTenant(null);
+    toast.success('Inquilino excluído com sucesso!');
+  };
+
+  const handleEditTenant = () => {
+    if (selectedTenant) {
+      setEditingTenant(selectedTenant);
+      setSelectedTenant(null);
+    }
   };
 
   return (
@@ -106,7 +132,11 @@ export default function TenantDatabase() {
       {/* Tenants Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredTenants.map((tenant) => (
-          <TenantCard key={tenant.id} tenant={tenant} />
+          <TenantCard 
+            key={tenant.id} 
+            tenant={tenant} 
+            onClick={() => setSelectedTenant(tenant)}
+          />
         ))}
       </div>
 
@@ -121,6 +151,24 @@ export default function TenantDatabase() {
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddTenant}
+      />
+
+      {/* Tenant Detail Modal */}
+      {selectedTenant && (
+        <TenantDetailModal
+          tenant={selectedTenant}
+          onClose={() => setSelectedTenant(null)}
+          onEdit={handleEditTenant}
+          onDelete={() => handleDeleteTenant(selectedTenant.id)}
+        />
+      )}
+
+      {/* Edit Tenant Modal */}
+      <EditTenantModal
+        open={!!editingTenant}
+        tenant={editingTenant}
+        onClose={() => setEditingTenant(null)}
+        onSave={handleUpdateTenant}
       />
     </div>
   );

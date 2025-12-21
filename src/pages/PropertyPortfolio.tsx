@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Filter, Grid3X3, List } from 'lucide-react';
+import { Plus, Search, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PropertyCard } from '@/components/PropertyCard';
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { PropertyDetailModal } from '@/components/PropertyDetailModal';
 import { AddPropertyModal } from '@/components/AddPropertyModal';
+import { EditPropertyModal } from '@/components/EditPropertyModal';
+import { toast } from 'sonner';
 
 export default function PropertyPortfolio() {
   const [properties, setProperties] = useState<Property[]>(initialProperties);
@@ -23,6 +25,7 @@ export default function PropertyPortfolio() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
 
   const filteredProperties = properties.filter(property => {
     const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -52,6 +55,26 @@ export default function PropertyPortfolio() {
       prev.map(p => p.id === updatedProperty.id ? updatedProperty : p)
     );
     setSelectedProperty(updatedProperty);
+  };
+
+  const handleDeleteProperty = (propertyId: string) => {
+    setProperties(prev => prev.filter(p => p.id !== propertyId));
+    setSelectedProperty(null);
+    toast.success('Imóvel excluído com sucesso!');
+  };
+
+  const handleEditProperty = () => {
+    if (selectedProperty) {
+      setEditingProperty(selectedProperty);
+    }
+  };
+
+  const handleSaveEditedProperty = (updatedProperty: Property) => {
+    setProperties(prev => 
+      prev.map(p => p.id === updatedProperty.id ? updatedProperty : p)
+    );
+    setSelectedProperty(updatedProperty);
+    setEditingProperty(null);
   };
 
   return (
@@ -155,6 +178,8 @@ export default function PropertyPortfolio() {
           property={selectedProperty} 
           onClose={() => setSelectedProperty(null)}
           onUpdateProperty={handleUpdateProperty}
+          onDeleteProperty={() => handleDeleteProperty(selectedProperty.id)}
+          onEditProperty={handleEditProperty}
           allTenants={mockTenants}
         />
       )}
@@ -164,6 +189,14 @@ export default function PropertyPortfolio() {
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddProperty}
+      />
+
+      {/* Edit Property Modal */}
+      <EditPropertyModal
+        open={!!editingProperty}
+        property={editingProperty}
+        onClose={() => setEditingProperty(null)}
+        onSave={handleSaveEditedProperty}
       />
     </div>
   );

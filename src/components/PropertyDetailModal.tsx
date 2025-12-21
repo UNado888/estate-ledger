@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Property, Tenant, RentalHistory } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2 } from 'lucide-react';
+import { Property, Tenant, RentalHistory, PaymentRecord } from '@/types';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,7 +13,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { AssignTenantModal } from './AssignTenantModal';
+import { RegisterPaymentModal } from './RegisterPaymentModal';
 import { toast } from 'sonner';
 import {
   AreaChart, 
@@ -29,6 +41,8 @@ interface PropertyDetailModalProps {
   property: Property;
   onClose: () => void;
   onUpdateProperty?: (updatedProperty: Property) => void;
+  onDeleteProperty?: () => void;
+  onEditProperty?: () => void;
   allTenants?: Tenant[];
 }
 
@@ -46,18 +60,28 @@ const statusOptions = [
   { value: 'sale', label: 'À Venda' },
 ];
 
+const paymentStatusConfig = {
+  paid: { label: 'Pago', icon: Check, className: 'text-success' },
+  pending: { label: 'Pendente', icon: Clock, className: 'text-warning' },
+  late: { label: 'Atrasado', icon: AlertTriangle, className: 'text-destructive' },
+};
+
 export function PropertyDetailModal({ 
   property, 
   onClose, 
   onUpdateProperty,
+  onDeleteProperty,
+  onEditProperty,
   allTenants = mockTenants 
 }: PropertyDetailModalProps) {
   const [currentProperty, setCurrentProperty] = useState(property);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [showAssignTenant, setShowAssignTenant] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [rentalHistoryState, setRentalHistoryState] = useState<RentalHistory[]>(
     mockRentalHistory.filter(r => r.propertyId === property.id)
   );
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
 
   const status = statusConfig[currentProperty.status];
   const currentTenant = currentProperty.currentTenantId 
@@ -167,6 +191,10 @@ export function PropertyDetailModal({
     toast.success('Inquilino removido do imóvel');
   };
 
+  const handleRegisterPayment = (payment: PaymentRecord) => {
+    setPaymentHistory(prev => [payment, ...prev]);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
@@ -210,9 +238,39 @@ export function PropertyDetailModal({
               <span>{currentProperty.address}, {currentProperty.city}</span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {onEditProperty && (
+              <Button variant="outline" size="icon" onClick={onEditProperty}>
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
+            {onDeleteProperty && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="text-destructive hover:text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir imóvel?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. O imóvel "{currentProperty.name}" será removido permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onDeleteProperty} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Content */}
@@ -222,6 +280,7 @@ export function PropertyDetailModal({
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
               <TabsTrigger value="financial">Financeiro</TabsTrigger>
               <TabsTrigger value="tenant">Inquilino</TabsTrigger>
+              <TabsTrigger value="payments">Pagamentos</TabsTrigger>
               <TabsTrigger value="inventory">Inventário</TabsTrigger>
             </TabsList>
 
@@ -416,6 +475,57 @@ export function PropertyDetailModal({
               </div>
             </TabsContent>
 
+            <TabsContent value="payments" className="space-y-6">
+              {/* Register Payment Button */}
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-foreground">Histórico de Pagamentos</h3>
+                <Button onClick={() => setShowPaymentModal(true)} className="gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Registrar Pagamento
+                </Button>
+              </div>
+
+              {/* Payment History */}
+              {paymentHistory.length > 0 ? (
+                <div className="bg-secondary/30 rounded-xl p-5">
+                  <div className="space-y-3">
+                    {paymentHistory.map((payment) => {
+                      const statusInfo = paymentStatusConfig[payment.status];
+                      const StatusIcon = statusInfo.icon;
+                      return (
+                        <div key={payment.id} className="flex justify-between items-center py-3 border-b border-border last:border-0">
+                          <div className="flex items-center gap-3">
+                            <StatusIcon className={cn("w-5 h-5", statusInfo.className)} />
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {new Date(payment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Venc: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+                                {payment.paidDate && ` • Pago: ${new Date(payment.paidDate).toLocaleDateString('pt-BR')}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-foreground">{formatCurrency(payment.amount)}</p>
+                            <Badge className={cn("text-xs", statusInfo.className, "bg-transparent")}>
+                              {statusInfo.label}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-secondary/30 rounded-xl">
+                  <CreditCard className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">Nenhum pagamento registrado</p>
+                  <p className="text-sm text-muted-foreground mt-1">Clique em "Registrar Pagamento" para adicionar</p>
+                </div>
+              )}
+            </TabsContent>
+
             <TabsContent value="inventory" className="space-y-6">
               <div className="bg-secondary/30 rounded-xl p-5">
                 <h3 className="font-semibold text-foreground mb-4">Inventário de Móveis e Equipamentos</h3>
@@ -467,6 +577,15 @@ export function PropertyDetailModal({
         propertyName={currentProperty.name}
         tenants={allTenants}
         onAssign={handleAssignTenant}
+      />
+
+      {/* Register Payment Modal */}
+      <RegisterPaymentModal
+        open={showPaymentModal}
+        property={currentProperty}
+        tenant={currentTenant}
+        onClose={() => setShowPaymentModal(false)}
+        onRegister={handleRegisterPayment}
       />
     </div>
   );
