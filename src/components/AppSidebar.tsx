@@ -8,14 +8,16 @@ import {
   Moon,
   ChevronLeft,
   ChevronRight,
-  Bell
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { mockAlerts } from '@/data/mockData';
+import { mockProperties, mockRentalHistory } from '@/data/mockData';
+import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
+import { NotificationsPanel } from '@/components/NotificationsPanel';
+import { Alert } from '@/types';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard Global', path: '/' },
@@ -29,7 +31,24 @@ export function AppSidebar() {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const unreadAlerts = mockAlerts.filter(a => !a.read).length;
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  
+  // Generate automatic alerts based on payment status
+  const paymentAlerts = usePaymentAlerts({ 
+    properties: mockProperties, 
+    rentalHistory: mockRentalHistory 
+  });
+  
+  // Filter out dismissed alerts
+  const activeAlerts = paymentAlerts.filter(a => !dismissedAlerts.includes(a.id));
+  
+  const handleDismissAlert = (id: string) => {
+    setDismissedAlerts(prev => [...prev, id]);
+  };
+  
+  const handleMarkAllRead = () => {
+    setDismissedAlerts(paymentAlerts.map(a => a.id));
+  };
 
   return (
     <aside 
@@ -82,25 +101,14 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {/* Alerts Badge */}
+      {/* Notifications Panel */}
       <div className={cn("px-3 py-2", collapsed && "px-2")}>
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start gap-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-            collapsed && "justify-center px-2"
-          )}
-        >
-          <div className="relative">
-            <Bell className="w-5 h-5" />
-            {unreadAlerts > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full text-[10px] flex items-center justify-center text-destructive-foreground font-medium">
-                {unreadAlerts}
-              </span>
-            )}
-          </div>
-          {!collapsed && <span className="text-sm font-medium">Alertas</span>}
-        </Button>
+        <NotificationsPanel 
+          alerts={activeAlerts}
+          onDismiss={handleDismissAlert}
+          onMarkAllRead={handleMarkAllRead}
+          collapsed={collapsed}
+        />
       </div>
 
       {/* Footer */}
