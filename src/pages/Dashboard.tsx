@@ -9,8 +9,9 @@ import {
 import { StatCard } from '@/components/StatCard';
 import { PropertyCard } from '@/components/PropertyCard';
 import { AlertItem } from '@/components/AlertItem';
-import { mockProperties, mockTenants, mockAlerts, mockFinancialHistory } from '@/data/mockData';
-import { 
+import { mockProperties, mockTenants, mockFinancialHistory, mockRentalHistory } from '@/data/mockData';
+import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
+import {
   AreaChart, 
   Area, 
   XAxis, 
@@ -43,7 +44,13 @@ export default function Dashboard() {
   const equityPercent = ((totalEquity / totalAcquisitionCost) * 100).toFixed(1);
 
   const activeTenants = mockTenants.filter(t => t.status === 'active').length;
-  const unreadAlerts = mockAlerts.filter(a => !a.read);
+  
+  // Generate automatic alerts
+  const paymentAlerts = usePaymentAlerts({ 
+    properties: mockProperties, 
+    rentalHistory: mockRentalHistory 
+  });
+  const unreadAlerts = paymentAlerts;
 
   // Chart data - last 12 months
   const revenueData = Array.from({ length: 12 }, (_, i) => {
