@@ -16,9 +16,10 @@ import { AddTenantModal } from '@/components/AddTenantModal';
 import { EditTenantModal } from '@/components/EditTenantModal';
 import { TenantDetailModal } from '@/components/TenantDetailModal';
 import { toast } from 'sonner';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export default function TenantDatabase() {
-  const [tenants, setTenants] = useState<Tenant[]>(initialTenants);
+  const [tenants, setTenants] = useLocalStorage<Tenant[]>('imobiliaria-tenants', initialTenants);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
