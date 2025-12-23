@@ -1,4 +1,4 @@
-import { FileText, Download, Calendar, Building2, Users, TrendingUp } from 'lucide-react';
+import { FileText, Download, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -9,46 +9,66 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from 'react';
-import { mockProperties } from '@/data/mockData';
+import { mockProperties, mockRentalHistory } from '@/data/mockData';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { Property, RentalHistory } from '@/types';
+import { useReportData } from '@/hooks/useReportData';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+} from 'recharts';
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
 
 export default function Reports() {
+  const [properties] = useLocalStorage<Property[]>('imobiliaria-properties', mockProperties);
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('12');
 
-  const reportTypes = [
-    {
-      id: 'executive',
-      title: 'Relatório Executivo',
-      description: 'Visão consolidada do portfólio com KPIs principais e análise de performance.',
-      icon: TrendingUp,
-      color: 'bg-primary/10 text-primary',
-    },
-    {
-      id: 'property',
-      title: 'Relatório por Imóvel',
-      description: 'Análise detalhada de um ativo específico com histórico financeiro e inquilinos.',
-      icon: Building2,
-      color: 'bg-success/10 text-success',
-    },
-    {
-      id: 'tenant',
-      title: 'Relatório de Inquilinos',
-      description: 'Lista completa de locatários com status de pagamentos e avaliações.',
-      icon: Users,
-      color: 'bg-warning/10 text-warning',
-    },
-    {
-      id: 'dre',
-      title: 'DRE Consolidado',
-      description: 'Demonstrativo de resultados com receitas, despesas e lucro líquido.',
-      icon: FileText,
-      color: 'bg-chart-accent/10 text-chart-accent',
-    },
-  ];
+  const { monthlyData, summaryData, propertyBreakdown, paymentStatusData } = useReportData({
+    properties,
+    rentalHistory: mockRentalHistory,
+    selectedProperty,
+    selectedPeriod,
+  });
 
-  const handleGenerateReport = (reportId: string) => {
+  const revenueChartConfig = {
+    revenue: { label: 'Receita', color: 'hsl(var(--primary))' },
+    expected: { label: 'Esperado', color: 'hsl(var(--muted-foreground))' },
+  };
+
+  const delinquencyChartConfig = {
+    paid: { label: 'Em dia', color: 'hsl(var(--success))' },
+    late: { label: 'Atrasados', color: 'hsl(var(--warning))' },
+    pending: { label: 'Pendentes', color: 'hsl(var(--destructive))' },
+  };
+
+  const handleExportPDF = () => {
     // In a real app, this would generate a PDF
-    console.log(`Generating ${reportId} report for property ${selectedProperty} over ${selectedPeriod} months`);
+    console.log('Exporting report as PDF...');
   };
 
   return (
@@ -57,8 +77,12 @@ export default function Reports() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Relatórios</h1>
-          <p className="text-muted-foreground">Gere relatórios executivos em PDF para análise offline</p>
+          <p className="text-muted-foreground">Análise de receitas, inadimplência e histórico de pagamentos</p>
         </div>
+        <Button onClick={handleExportPDF} className="gap-2">
+          <Download className="w-4 h-4" />
+          Exportar PDF
+        </Button>
       </div>
 
       {/* Filters */}
@@ -71,7 +95,7 @@ export default function Reports() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Imóveis</SelectItem>
-              {mockProperties.map((property) => (
+              {properties.map((property) => (
                 <SelectItem key={property.id} value={property.id}>
                   {property.name}
                 </SelectItem>
@@ -90,65 +114,248 @@ export default function Reports() {
               <SelectItem value="3">Últimos 3 meses</SelectItem>
               <SelectItem value="6">Últimos 6 meses</SelectItem>
               <SelectItem value="12">Último ano</SelectItem>
-              <SelectItem value="60">Últimos 5 anos</SelectItem>
-              <SelectItem value="120">Últimos 10 anos</SelectItem>
+              <SelectItem value="24">Últimos 2 anos</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Report Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {reportTypes.map((report) => (
-          <Card key={report.id} className="card-hover">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${report.color}`}>
-                  <report.icon className="w-6 h-6" />
-                </div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Receita Total</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(summaryData.totalRevenue)}</p>
               </div>
-              <CardTitle className="font-display">{report.title}</CardTitle>
-              <CardDescription>{report.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full gap-2" 
-                onClick={() => handleGenerateReport(report.id)}
-              >
-                <Download className="w-4 h-4" />
-                Gerar PDF
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2 text-sm">
+              <TrendingUp className="w-4 h-4 text-success" />
+              <span className="text-success">+12%</span>
+              <span className="text-muted-foreground">vs período anterior</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Taxa de Inadimplência</p>
+                <p className="text-2xl font-bold text-foreground">{summaryData.delinquencyRate.toFixed(1)}%</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-warning" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2 text-sm">
+              <TrendingDown className="w-4 h-4 text-success" />
+              <span className="text-success">-2.3%</span>
+              <span className="text-muted-foreground">vs período anterior</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Pagamentos em Dia</p>
+                <p className="text-2xl font-bold text-foreground">{summaryData.paidOnTime}</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-success" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
+              De {summaryData.paidOnTime + summaryData.latePayments + summaryData.pendingPayments} pagamentos
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Pendentes</p>
+                <p className="text-2xl font-bold text-foreground">{summaryData.pendingPayments}</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <Clock className="w-6 h-6 text-destructive" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
+              Aguardando pagamento
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Recent Reports */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h3 className="font-display font-semibold text-foreground mb-4">Relatórios Recentes</h3>
-        <div className="space-y-3">
-          {[
-            { name: 'Relatório Executivo - Janeiro 2024', date: '15/01/2024', size: '2.4 MB' },
-            { name: 'DRE Consolidado - Q4 2023', date: '05/01/2024', size: '1.8 MB' },
-            { name: 'Relatório Edifício Aurora - 2023', date: '20/12/2023', size: '3.1 MB' },
-          ].map((report, index) => (
-            <div key={index} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">{report.name}</p>
-                  <p className="text-sm text-muted-foreground">{report.date} • {report.size}</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="icon">
-                <Download className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Revenue Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="font-display">Receita Mensal</CardTitle>
+            <CardDescription>Comparativo entre receita realizada e esperada</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={revenueChartConfig} className="h-[300px] w-full">
+              <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis 
+                  dataKey="monthLabel" 
+                  tick={{ fontSize: 12 }} 
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis 
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <ChartTooltip 
+                  content={<ChartTooltipContent 
+                    formatter={(value, name) => (
+                      <span className="font-medium">{formatCurrency(Number(value))}</span>
+                    )}
+                  />} 
+                />
+                <Area
+                  type="monotone"
+                  dataKey="expected"
+                  stroke="hsl(var(--muted-foreground))"
+                  strokeDasharray="5 5"
+                  fill="transparent"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="hsl(var(--primary))"
+                  fill="url(#colorRevenue)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Payment Status Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display">Status dos Pagamentos</CardTitle>
+            <CardDescription>Distribuição por situação</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={delinquencyChartConfig} className="h-[300px] w-full">
+              <PieChart>
+                <Pie
+                  data={paymentStatusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {paymentStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+              </PieChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Delinquency by Month */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display">Histórico de Inadimplência</CardTitle>
+          <CardDescription>Pagamentos atrasados e pendentes por mês</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={delinquencyChartConfig} className="h-[300px] w-full">
+            <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis 
+                dataKey="monthLabel" 
+                tick={{ fontSize: 12 }} 
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis 
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="paid" stackId="a" fill="hsl(var(--success))" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="late" stackId="a" fill="hsl(var(--warning))" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="pending" stackId="a" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      {/* Property Breakdown Table */}
+      {selectedProperty === 'all' && propertyBreakdown.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display">Desempenho por Imóvel</CardTitle>
+            <CardDescription>Receita e inadimplência de cada propriedade</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Imóvel</th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Receita Total</th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Pagamentos Atrasados</th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Taxa Inadimplência</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {propertyBreakdown.map((item) => (
+                    <tr key={item.propertyId} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
+                      <td className="py-3 px-4 text-sm font-medium text-foreground">{item.propertyName}</td>
+                      <td className="py-3 px-4 text-sm text-right text-foreground">{formatCurrency(item.totalRevenue)}</td>
+                      <td className="py-3 px-4 text-sm text-right text-foreground">{item.latePayments}</td>
+                      <td className="py-3 px-4 text-sm text-right">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          item.delinquencyRate > 20 
+                            ? 'bg-destructive/10 text-destructive' 
+                            : item.delinquencyRate > 10 
+                              ? 'bg-warning/10 text-warning' 
+                              : 'bg-success/10 text-success'
+                        }`}>
+                          {item.delinquencyRate.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
