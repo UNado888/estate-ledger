@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PropertyCard } from '@/components/PropertyCard';
-import { mockProperties as initialProperties, mockTenants } from '@/data/mockData';
-import { Property } from '@/types';
+import { mockProperties as initialProperties, mockTenants as initialTenants } from '@/data/mockData';
+import { Property, Tenant } from '@/types';
 import {
   Select,
   SelectContent,
@@ -16,9 +16,11 @@ import { PropertyDetailModal } from '@/components/PropertyDetailModal';
 import { AddPropertyModal } from '@/components/AddPropertyModal';
 import { EditPropertyModal } from '@/components/EditPropertyModal';
 import { toast } from 'sonner';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 export default function PropertyPortfolio() {
-  const [properties, setProperties] = useState<Property[]>(initialProperties);
+  const [properties, setProperties] = useLocalStorage<Property[]>('imobiliaria-properties', initialProperties);
+  const [tenants] = useLocalStorage<Tenant[]>('imobiliaria-tenants', initialTenants);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -180,7 +182,7 @@ export default function PropertyPortfolio() {
           onUpdateProperty={handleUpdateProperty}
           onDeleteProperty={() => handleDeleteProperty(selectedProperty.id)}
           onEditProperty={handleEditProperty}
-          allTenants={mockTenants}
+          allTenants={tenants}
         />
       )}
 
