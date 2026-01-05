@@ -3,6 +3,7 @@ import { Building2, Home, Store, MapPin, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { UtilitiesConfig, defaultUtilities } from '@/components/UtilitiesConfig';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Property } from '@/types';
+import { Property, PropertyUtilities, UtilityResponsible } from '@/types';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
 
 interface EditPropertyModalProps {
   open: boolean;
@@ -61,6 +63,7 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
     iptu: '',
     condoFee: '',
     acquisitionDate: '',
+    utilities: defaultUtilities,
   });
 
   useEffect(() => {
@@ -84,6 +87,7 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
         iptu: property.iptu.toString(),
         condoFee: property.condoFee.toString(),
         acquisitionDate: property.acquisitionDate,
+        utilities: property.utilities || defaultUtilities,
       });
     }
   }, [property]);
@@ -120,6 +124,7 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
       iptu: Number(formData.iptu) || 0,
       condoFee: Number(formData.condoFee) || 0,
       acquisitionDate: formData.acquisitionDate || property.acquisitionDate,
+      utilities: formData.utilities,
     };
 
     onSave(updatedProperty);
@@ -344,6 +349,12 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
               onChange={(e) => handleChange('acquisitionDate', e.target.value)}
             />
           </div>
+
+          {/* Utilities */}
+          <UtilitiesConfig
+            utilities={formData.utilities}
+            onChange={(utilities) => setFormData(prev => ({ ...prev, utilities }))}
+          />
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">

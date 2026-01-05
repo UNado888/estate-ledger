@@ -1,3 +1,17 @@
+export type UtilityResponsible = 'holding' | 'tenant';
+
+export interface UtilityConfig {
+  enabled: boolean;
+  responsible: UtilityResponsible;
+}
+
+export interface PropertyUtilities {
+  water: UtilityConfig;
+  electricity: UtilityConfig;
+  gas: UtilityConfig;
+  condo: UtilityConfig;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -20,6 +34,7 @@ export interface Property {
   acquisitionDate: string;
   currentTenantId?: string;
   imageUrl?: string;
+  utilities?: PropertyUtilities;
 }
 
 export interface Tenant {

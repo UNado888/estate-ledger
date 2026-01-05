@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Property, Tenant, RentalHistory, PaymentRecord } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle } from 'lucide-react';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -336,6 +336,48 @@ export function PropertyDetailModal({
                   <p className="text-sm text-muted-foreground">{formatCurrency(currentProperty.acquisitionCost)}</p>
                 </div>
               </div>
+
+              {/* Utilities */}
+              {currentProperty.utilities && (
+                <div className="bg-secondary/30 rounded-xl p-5">
+                  <h3 className="font-semibold text-foreground mb-4">Contas e Utilidades</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { key: 'water' as const, label: 'Água', icon: Droplets },
+                      { key: 'electricity' as const, label: 'Luz', icon: Zap },
+                      { key: 'gas' as const, label: 'Gás', icon: Flame },
+                      { key: 'condo' as const, label: 'Condomínio', icon: Building },
+                    ].map(({ key, label, icon: Icon }) => {
+                      const config = currentProperty.utilities?.[key];
+                      if (!config?.enabled) return null;
+                      return (
+                        <div
+                          key={key}
+                          className="flex flex-col items-center gap-2 p-3 rounded-lg bg-card border border-border"
+                        >
+                          <Icon className="w-5 h-5 text-primary" />
+                          <span className="text-sm font-medium text-foreground">{label}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            config.responsible === 'holding'
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-secondary text-muted-foreground'
+                          }`}>
+                            {config.responsible === 'holding' ? 'Holding' : 'Inquilino'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {!currentProperty.utilities?.water?.enabled &&
+                     !currentProperty.utilities?.electricity?.enabled &&
+                     !currentProperty.utilities?.gas?.enabled &&
+                     !currentProperty.utilities?.condo?.enabled && (
+                      <p className="col-span-full text-sm text-muted-foreground text-center py-4">
+                        Nenhuma conta configurada
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="financial" className="space-y-6">

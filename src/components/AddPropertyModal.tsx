@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { UtilitiesConfig, defaultUtilities } from '@/components/UtilitiesConfig';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Property } from '@/types';
+import { Property, PropertyUtilities, UtilityResponsible } from '@/types';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
 
 interface AddPropertyModalProps {
   open: boolean;
@@ -61,6 +63,7 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
     iptu: '',
     condoFee: '',
     acquisitionDate: '',
+    utilities: defaultUtilities,
   });
 
   const handleChange = (field: string, value: string) => {
@@ -95,6 +98,7 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
       iptu: Number(formData.iptu) || 0,
       condoFee: Number(formData.condoFee) || 0,
       acquisitionDate: formData.acquisitionDate || new Date().toISOString().split('T')[0],
+      utilities: formData.utilities,
     };
 
     onAdd(newProperty);
@@ -121,6 +125,7 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
       iptu: '',
       condoFee: '',
       acquisitionDate: '',
+      utilities: defaultUtilities,
     });
   };
 
@@ -339,6 +344,12 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
               onChange={(e) => handleChange('acquisitionDate', e.target.value)}
             />
           </div>
+
+          {/* Utilities */}
+          <UtilitiesConfig
+            utilities={formData.utilities}
+            onChange={(utilities) => setFormData(prev => ({ ...prev, utilities }))}
+          />
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">
