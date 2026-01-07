@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Property, Tenant, RentalHistory, PaymentRecord } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building } from 'lucide-react';
+import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord } from '@/types';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { mockTenants, mockFurniture, mockRentalHistory } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import { UtilityPaymentsTab } from './UtilityPaymentsTab';
 import {
   Select,
   SelectContent,
@@ -82,6 +83,7 @@ export function PropertyDetailModal({
     mockRentalHistory.filter(r => r.propertyId === property.id)
   );
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+  const [utilityPayments, setUtilityPayments] = useState<UtilityPaymentRecord[]>([]);
 
   const status = statusConfig[currentProperty.status];
   const currentTenant = currentProperty.currentTenantId 
@@ -195,6 +197,10 @@ export function PropertyDetailModal({
     setPaymentHistory(prev => [payment, ...prev]);
   };
 
+  const handleAddUtilityPayment = (payment: UtilityPaymentRecord) => {
+    setUtilityPayments(prev => [payment, ...prev]);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
@@ -276,11 +282,15 @@ export function PropertyDetailModal({
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-88px)] p-6">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="mb-6">
+            <TabsList className="mb-6 flex-wrap">
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
               <TabsTrigger value="financial">Financeiro</TabsTrigger>
               <TabsTrigger value="tenant">Inquilino</TabsTrigger>
               <TabsTrigger value="payments">Pagamentos</TabsTrigger>
+              <TabsTrigger value="utilities" className="gap-1.5">
+                <Receipt className="w-4 h-4" />
+                Contas
+              </TabsTrigger>
               <TabsTrigger value="inventory">Inventário</TabsTrigger>
             </TabsList>
 
@@ -566,6 +576,14 @@ export function PropertyDetailModal({
                   <p className="text-sm text-muted-foreground mt-1">Clique em "Registrar Pagamento" para adicionar</p>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="utilities">
+              <UtilityPaymentsTab
+                property={currentProperty}
+                payments={utilityPayments}
+                onAddPayment={handleAddUtilityPayment}
+              />
             </TabsContent>
 
             <TabsContent value="inventory" className="space-y-6">

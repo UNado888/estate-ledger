@@ -71,6 +71,20 @@ export interface PaymentRecord {
   status: 'paid' | 'pending' | 'late';
 }
 
+export type UtilityType = 'water' | 'electricity' | 'gas' | 'condo';
+
+export interface UtilityPaymentRecord {
+  id: string;
+  propertyId: string;
+  utilityType: UtilityType;
+  referenceMonth: string;
+  dueDate: string;
+  paidDate?: string;
+  amount: number;
+  status: 'paid' | 'pending' | 'late';
+  notes?: string;
+}
+
 export interface Furniture {
   id: string;
   propertyId: string;
