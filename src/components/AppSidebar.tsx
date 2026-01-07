@@ -17,7 +17,8 @@ import { useState } from 'react';
 import { mockProperties, mockRentalHistory } from '@/data/mockData';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
 import { NotificationsPanel } from '@/components/NotificationsPanel';
-import { Alert } from '@/types';
+import { Alert, UtilityPaymentRecord } from '@/types';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard Global', path: '/' },
@@ -32,11 +33,13 @@ export function AppSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [utilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   
   // Generate automatic alerts based on payment status
   const paymentAlerts = usePaymentAlerts({ 
     properties: mockProperties, 
-    rentalHistory: mockRentalHistory 
+    rentalHistory: mockRentalHistory,
+    utilityPayments
   });
   
   // Filter out dismissed alerts
