@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord } from '@/types';
 import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { mockTenants, mockFurniture, mockRentalHistory } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { UtilityPaymentsTab } from './UtilityPaymentsTab';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import {
   Select,
   SelectContent,
@@ -83,7 +84,14 @@ export function PropertyDetailModal({
     mockRentalHistory.filter(r => r.propertyId === property.id)
   );
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
-  const [utilityPayments, setUtilityPayments] = useState<UtilityPaymentRecord[]>([]);
+  const [allUtilityPayments, setAllUtilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
+  
+  // Filter utility payments for this property
+  const utilityPayments = allUtilityPayments.filter(p => p.propertyId === property.id);
+  
+  const handleAddUtilityPayment = (payment: UtilityPaymentRecord) => {
+    setAllUtilityPayments(prev => [payment, ...prev]);
+  };
 
   const status = statusConfig[currentProperty.status];
   const currentTenant = currentProperty.currentTenantId 
@@ -195,10 +203,6 @@ export function PropertyDetailModal({
 
   const handleRegisterPayment = (payment: PaymentRecord) => {
     setPaymentHistory(prev => [payment, ...prev]);
-  };
-
-  const handleAddUtilityPayment = (payment: UtilityPaymentRecord) => {
-    setUtilityPayments(prev => [payment, ...prev]);
   };
 
   return (
