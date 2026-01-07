@@ -1,13 +1,21 @@
 import { useMemo } from 'react';
-import { Alert, Property, RentalHistory } from '@/types';
-import { addDays, isBefore, isAfter, differenceInDays, format } from 'date-fns';
+import { Alert, Property, RentalHistory, UtilityPaymentRecord } from '@/types';
+import { isBefore, differenceInDays, format } from 'date-fns';
 
 interface UsePaymentAlertsProps {
   properties: Property[];
   rentalHistory: RentalHistory[];
+  utilityPayments?: UtilityPaymentRecord[];
 }
 
-export function usePaymentAlerts({ properties, rentalHistory }: UsePaymentAlertsProps): Alert[] {
+const utilityLabels: Record<string, string> = {
+  water: 'Água',
+  electricity: 'Luz',
+  gas: 'Gás',
+  condo: 'Condomínio',
+};
+
+export function usePaymentAlerts({ properties, rentalHistory, utilityPayments = [] }: UsePaymentAlertsProps): Alert[] {
   const alerts = useMemo(() => {
     const generatedAlerts: Alert[] = [];
     const today = new Date();
@@ -111,6 +119,46 @@ export function usePaymentAlerts({ properties, rentalHistory }: UsePaymentAlerts
         });
       }
     });
+
+    // Check utility payments for alerts
+    utilityPayments.forEach(payment => {
+      if (payment.status === 'paid') return;
+      
+      const property = properties.find(p => p.id === payment.propertyId);
+      if (!property) return;
+      
+      const dueDate = new Date(payment.dueDate);
+      const daysUntilDue = differenceInDays(dueDate, today);
+      const utilityName = utilityLabels[payment.utilityType] || payment.utilityType;
+      
+      // Late utility payment
+      if (payment.status === 'late' || (payment.status === 'pending' && isBefore(dueDate, today))) {
+        const daysLate = Math.abs(daysUntilDue);
+        generatedAlerts.push({
+          id: `utility-late-${payment.id}`,
+          type: 'delinquency',
+          severity: daysLate > 15 ? 'high' : daysLate > 7 ? 'medium' : 'low',
+          title: `${utilityName} Atrasada`,
+          message: `Conta de ${utilityName} (${payment.referenceMonth}) do imóvel "${property.name}" está ${daysLate} dias atrasada. Valor: R$ ${payment.amount.toLocaleString('pt-BR')}`,
+          propertyId: property.id,
+          date: today.toISOString(),
+          read: false,
+        });
+      }
+      // Upcoming utility payment (within 7 days)
+      else if (payment.status === 'pending' && daysUntilDue > 0 && daysUntilDue <= 7) {
+        generatedAlerts.push({
+          id: `utility-upcoming-${payment.id}`,
+          type: 'contract',
+          severity: daysUntilDue <= 3 ? 'medium' : 'low',
+          title: `${utilityName} Próxima do Vencimento`,
+          message: `Conta de ${utilityName} (${payment.referenceMonth}) do imóvel "${property.name}" vence em ${daysUntilDue} dia${daysUntilDue > 1 ? 's' : ''} (${format(dueDate, 'dd/MM/yyyy')}). Valor: R$ ${payment.amount.toLocaleString('pt-BR')}`,
+          propertyId: property.id,
+          date: today.toISOString(),
+          read: false,
+        });
+      }
+    });
     
     // Sort by severity (high first) and then by date
     return generatedAlerts.sort((a, b) => {
@@ -120,7 +168,7 @@ export function usePaymentAlerts({ properties, rentalHistory }: UsePaymentAlerts
       }
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [properties, rentalHistory]);
+  }, [properties, rentalHistory, utilityPayments]);
   
   return alerts;
 }
