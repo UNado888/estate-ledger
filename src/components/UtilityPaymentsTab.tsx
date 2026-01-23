@@ -81,6 +81,8 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<UtilityPaymentRecord | null>(null);
   const [filterType, setFilterType] = useState<UtilityType | 'all'>('all');
+  const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>('all');
   
   const initialFormData = {
     utilityType: 'water' as UtilityType,
@@ -101,11 +103,35 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
     );
   }, [property.utilities]);
 
+  const availableYears = useMemo(() => {
+    const years = new Set(payments.map(p => p.referenceMonth.slice(0, 4)));
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [payments]);
+
+  const availableMonths = useMemo(() => {
+    return [
+      { value: '01', label: 'Janeiro' },
+      { value: '02', label: 'Fevereiro' },
+      { value: '03', label: 'Março' },
+      { value: '04', label: 'Abril' },
+      { value: '05', label: 'Maio' },
+      { value: '06', label: 'Junho' },
+      { value: '07', label: 'Julho' },
+      { value: '08', label: 'Agosto' },
+      { value: '09', label: 'Setembro' },
+      { value: '10', label: 'Outubro' },
+      { value: '11', label: 'Novembro' },
+      { value: '12', label: 'Dezembro' },
+    ];
+  }, []);
+
   const filteredPayments = useMemo(() => {
     return payments
       .filter(p => filterType === 'all' || p.utilityType === filterType)
+      .filter(p => filterYear === 'all' || p.referenceMonth.startsWith(filterYear))
+      .filter(p => filterMonth === 'all' || p.referenceMonth.endsWith(`-${filterMonth}`))
       .sort((a, b) => new Date(b.referenceMonth).getTime() - new Date(a.referenceMonth).getTime());
-  }, [payments, filterType]);
+  }, [payments, filterType, filterYear, filterMonth]);
 
   const chartData = useMemo(() => {
     const last6Months: Record<string, Record<UtilityType | 'month', string | number>> = {};
@@ -326,19 +352,43 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
 
           {/* Filter and Table */}
           <div className="bg-secondary/30 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
               <h4 className="font-medium text-foreground">Histórico de Pagamentos</h4>
-              <Select value={filterType} onValueChange={(v) => setFilterType(v as UtilityType | 'all')}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Filtrar" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="all">Todas</SelectItem>
-                  {enabledUtilities.map(type => (
-                    <SelectItem key={type} value={type}>{utilityConfig[type].label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={filterYear} onValueChange={setFilterYear}>
+                  <SelectTrigger className="w-[110px]">
+                    <SelectValue placeholder="Ano" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="all">Todos anos</SelectItem>
+                    {availableYears.map(year => (
+                      <SelectItem key={year} value={year}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterMonth} onValueChange={setFilterMonth}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Mês" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="all">Todos meses</SelectItem>
+                    {availableMonths.map(month => (
+                      <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterType} onValueChange={(v) => setFilterType(v as UtilityType | 'all')}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="all">Todas contas</SelectItem>
+                    {enabledUtilities.map(type => (
+                      <SelectItem key={type} value={type}>{utilityConfig[type].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {filteredPayments.length > 0 ? (
