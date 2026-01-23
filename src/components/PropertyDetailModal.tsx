@@ -93,6 +93,16 @@ export function PropertyDetailModal({
     setAllUtilityPayments(prev => [payment, ...prev]);
   };
 
+  const handleUpdateUtilityPayment = (updatedPayment: UtilityPaymentRecord) => {
+    setAllUtilityPayments(prev => 
+      prev.map(p => p.id === updatedPayment.id ? updatedPayment : p)
+    );
+  };
+
+  const handleDeleteUtilityPayment = (paymentId: string) => {
+    setAllUtilityPayments(prev => prev.filter(p => p.id !== paymentId));
+  };
+
   const status = statusConfig[currentProperty.status];
   const currentTenant = currentProperty.currentTenantId 
     ? allTenants.find(t => t.id === currentProperty.currentTenantId)
@@ -587,6 +597,8 @@ export function PropertyDetailModal({
                 property={currentProperty}
                 payments={utilityPayments}
                 onAddPayment={handleAddUtilityPayment}
+                onUpdatePayment={handleUpdateUtilityPayment}
+                onDeletePayment={handleDeleteUtilityPayment}
               />
             </TabsContent>
 
