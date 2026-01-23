@@ -18,6 +18,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -25,7 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Droplets, Zap, Flame, Building, Plus, Check, Clock, AlertTriangle, Receipt, Download } from 'lucide-react';
+import { Droplets, Zap, Flame, Building, Plus, Check, Clock, AlertTriangle, Receipt, Download, Edit2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { exportUtilityReportPDF } from '@/utils/pdfExport';
@@ -44,6 +54,8 @@ interface UtilityPaymentsTabProps {
   property: Property;
   payments: UtilityPaymentRecord[];
   onAddPayment: (payment: UtilityPaymentRecord) => void;
+  onUpdatePayment?: (payment: UtilityPaymentRecord) => void;
+  onDeletePayment?: (paymentId: string) => void;
 }
 
 const utilityConfig: Record<UtilityType, { label: string; icon: typeof Droplets; color: string }> = {
@@ -63,10 +75,14 @@ const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-export function UtilityPaymentsTab({ property, payments, onAddPayment }: UtilityPaymentsTabProps) {
+export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdatePayment, onDeletePayment }: UtilityPaymentsTabProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<UtilityPaymentRecord | null>(null);
   const [filterType, setFilterType] = useState<UtilityType | 'all'>('all');
-  const [formData, setFormData] = useState({
+  
+  const initialFormData = {
     utilityType: 'water' as UtilityType,
     referenceMonth: new Date().toISOString().slice(0, 7),
     dueDate: '',
@@ -74,7 +90,9 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment }: Utility
     amount: '',
     status: 'pending' as 'paid' | 'pending' | 'late',
     notes: '',
-  });
+  };
+  
+  const [formData, setFormData] = useState(initialFormData);
 
   const enabledUtilities = useMemo(() => {
     if (!property.utilities) return [];
@@ -154,16 +172,57 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment }: Utility
 
     onAddPayment(newPayment);
     setShowAddModal(false);
-    setFormData({
-      utilityType: 'water',
-      referenceMonth: new Date().toISOString().slice(0, 7),
-      dueDate: '',
-      paidDate: '',
-      amount: '',
-      status: 'pending',
-      notes: '',
-    });
+    setFormData(initialFormData);
     toast.success('Conta registrada com sucesso');
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.amount || !formData.dueDate || !selectedPayment) {
+      toast.error('Preencha os campos obrigatórios');
+      return;
+    }
+
+    const updatedPayment: UtilityPaymentRecord = {
+      ...selectedPayment,
+      utilityType: formData.utilityType,
+      referenceMonth: formData.referenceMonth,
+      dueDate: formData.dueDate,
+      paidDate: formData.status === 'paid' ? formData.paidDate || formData.dueDate : undefined,
+      amount: parseFloat(formData.amount),
+      status: formData.status,
+      notes: formData.notes || undefined,
+    };
+
+    onUpdatePayment?.(updatedPayment);
+    setShowEditModal(false);
+    setSelectedPayment(null);
+    setFormData(initialFormData);
+    toast.success('Conta atualizada com sucesso');
+  };
+
+  const handleEdit = (payment: UtilityPaymentRecord) => {
+    setSelectedPayment(payment);
+    setFormData({
+      utilityType: payment.utilityType,
+      referenceMonth: payment.referenceMonth,
+      dueDate: payment.dueDate,
+      paidDate: payment.paidDate || '',
+      amount: payment.amount.toString(),
+      status: payment.status,
+      notes: payment.notes || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedPayment) {
+      onDeletePayment?.(selectedPayment.id);
+      setShowDeleteDialog(false);
+      setSelectedPayment(null);
+      toast.success('Conta excluída com sucesso');
+    }
   };
 
   const handleExportPDF = () => {
@@ -292,6 +351,7 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment }: Utility
                       <TableHead>Vencimento</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-[80px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -329,6 +389,29 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment }: Utility
                               <Badge variant="outline" className={status.className}>
                                 {status.label}
                               </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEdit(payment)}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  setSelectedPayment(payment);
+                                  setShowDeleteDialog(true);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -447,6 +530,140 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment }: Utility
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Payment Modal */}
+      <Dialog open={showEditModal} onOpenChange={(open) => {
+        setShowEditModal(open);
+        if (!open) {
+          setSelectedPayment(null);
+          setFormData(initialFormData);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Conta</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Tipo de Conta</Label>
+              <Select
+                value={formData.utilityType}
+                onValueChange={(v) => setFormData({ ...formData, utilityType: v as UtilityType })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  {enabledUtilities.map(type => (
+                    <SelectItem key={type} value={type}>{utilityConfig[type].label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Mês de Referência</Label>
+                <Input
+                  type="month"
+                  value={formData.referenceMonth}
+                  onChange={(e) => setFormData({ ...formData, referenceMonth: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de Vencimento *</Label>
+                <Input
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Valor *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(v) => setFormData({ ...formData, status: v as 'paid' | 'pending' | 'late' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="paid">Pago</SelectItem>
+                    <SelectItem value="late">Atrasado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {formData.status === 'paid' && (
+              <div className="space-y-2">
+                <Label>Data do Pagamento</Label>
+                <Input
+                  type="date"
+                  value={formData.paidDate}
+                  onChange={(e) => setFormData({ ...formData, paidDate: e.target.value })}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Input
+                placeholder="Observações opcionais"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Salvar</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir conta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A conta de{' '}
+              {selectedPayment && utilityConfig[selectedPayment.utilityType]?.label} referente a{' '}
+              {selectedPayment && new Date(selectedPayment.referenceMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}{' '}
+              será removida permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
