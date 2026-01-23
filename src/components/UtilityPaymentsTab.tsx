@@ -25,9 +25,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Droplets, Zap, Flame, Building, Plus, Check, Clock, AlertTriangle, Receipt } from 'lucide-react';
+import { Droplets, Zap, Flame, Building, Plus, Check, Clock, AlertTriangle, Receipt, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { exportUtilityReportPDF } from '@/utils/pdfExport';
 import {
   BarChart,
   Bar,
@@ -165,15 +166,35 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment }: Utility
     toast.success('Conta registrada com sucesso');
   };
 
+  const handleExportPDF = () => {
+    if (payments.length === 0) {
+      toast.error('Nenhum pagamento para exportar');
+      return;
+    }
+    exportUtilityReportPDF({ property, payments });
+    toast.success('Relatório gerado com sucesso');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-foreground">Contas e Utilidades</h3>
-        <Button onClick={() => setShowAddModal(true)} className="gap-2" disabled={enabledUtilities.length === 0}>
-          <Plus className="w-4 h-4" />
-          Registrar Conta
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportPDF} 
+            className="gap-2" 
+            disabled={payments.length === 0}
+          >
+            <Download className="w-4 h-4" />
+            Exportar PDF
+          </Button>
+          <Button onClick={() => setShowAddModal(true)} className="gap-2" disabled={enabledUtilities.length === 0}>
+            <Plus className="w-4 h-4" />
+            Registrar Conta
+          </Button>
+        </div>
       </div>
 
       {enabledUtilities.length === 0 ? (
