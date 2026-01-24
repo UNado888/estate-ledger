@@ -8,6 +8,7 @@ import {
   Moon,
   ChevronLeft,
   ChevronRight,
+  Receipt,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -24,6 +25,7 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard Global', path: '/' },
   { icon: Building2, label: 'Portfólio de Imóveis', path: '/portfolio' },
   { icon: Users, label: 'Banco de Inquilinos', path: '/tenants' },
+  { icon: Receipt, label: 'Utilidades', path: '/utilities' },
   { icon: FileText, label: 'Relatórios', path: '/reports' },
   { icon: HardDrive, label: 'Backup', path: '/backup' },
 ];
