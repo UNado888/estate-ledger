@@ -10,6 +10,7 @@ import PropertyPortfolio from "./pages/PropertyPortfolio";
 import TenantDatabase from "./pages/TenantDatabase";
 import Reports from "./pages/Reports";
 import Backup from "./pages/Backup";
+import UtilitiesDashboard from "./pages/UtilitiesDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/portfolio" element={<PropertyPortfolio />} />
               <Route path="/tenants" element={<TenantDatabase />} />
+              <Route path="/utilities" element={<UtilitiesDashboard />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/backup" element={<Backup />} />
               <Route path="*" element={<NotFound />} />
