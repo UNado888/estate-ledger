@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -35,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Droplets, Zap, Flame, Building, Plus, Check, Clock, AlertTriangle, Receipt, Download, Edit2, Trash2 } from 'lucide-react';
+import { Droplets, Zap, Flame, Building, Plus, Check, Clock, AlertTriangle, Receipt, Download, Edit2, Trash2, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { exportUtilityReportPDF } from '@/utils/pdfExport';
@@ -79,7 +80,9 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showQuickPayDialog, setShowQuickPayDialog] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<UtilityPaymentRecord | null>(null);
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
   const [filterType, setFilterType] = useState<UtilityType | 'all'>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [filterYear, setFilterYear] = useState<string>('all');
@@ -95,6 +98,7 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
   };
   
   const [formData, setFormData] = useState(initialFormData);
+  const [quickPayDate, setQuickPayDate] = useState(new Date().toISOString().slice(0, 10));
 
   const enabledUtilities = useMemo(() => {
     if (!property.utilities) return [];
@@ -260,6 +264,59 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
     toast.success('Relatório gerado com sucesso');
   };
 
+  // Contas pendentes ou atrasadas que podem ser selecionadas
+  const selectablePayments = useMemo(() => {
+    return filteredPayments.filter(p => p.status !== 'paid');
+  }, [filteredPayments]);
+
+  const handleToggleSelect = (paymentId: string) => {
+    setSelectedPaymentIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(paymentId)) {
+        newSet.delete(paymentId);
+      } else {
+        newSet.add(paymentId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedPaymentIds.size === selectablePayments.length) {
+      setSelectedPaymentIds(new Set());
+    } else {
+      setSelectedPaymentIds(new Set(selectablePayments.map(p => p.id)));
+    }
+  };
+
+  const handleQuickPayConfirm = () => {
+    if (selectedPaymentIds.size === 0) return;
+
+    const today = quickPayDate || new Date().toISOString().slice(0, 10);
+    
+    selectedPaymentIds.forEach(id => {
+      const payment = payments.find(p => p.id === id);
+      if (payment && payment.status !== 'paid') {
+        const updatedPayment: UtilityPaymentRecord = {
+          ...payment,
+          status: 'paid',
+          paidDate: today,
+        };
+        onUpdatePayment?.(updatedPayment);
+      }
+    });
+
+    toast.success(`${selectedPaymentIds.size} conta(s) marcada(s) como paga(s)`);
+    setSelectedPaymentIds(new Set());
+    setShowQuickPayDialog(false);
+  };
+
+  const selectedTotal = useMemo(() => {
+    return payments
+      .filter(p => selectedPaymentIds.has(p.id))
+      .reduce((sum, p) => sum + p.amount, 0);
+  }, [payments, selectedPaymentIds]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -352,43 +409,77 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
 
           {/* Filter and Table */}
           <div className="bg-secondary/30 rounded-xl p-5">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-              <h4 className="font-medium text-foreground">Histórico de Pagamentos</h4>
-              <div className="flex flex-wrap items-center gap-2">
-                <Select value={filterYear} onValueChange={setFilterYear}>
-                  <SelectTrigger className="w-[110px]">
-                    <SelectValue placeholder="Ano" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    <SelectItem value="all">Todos anos</SelectItem>
-                    {availableYears.map(year => (
-                      <SelectItem key={year} value={year}>{year}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterMonth} onValueChange={setFilterMonth}>
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue placeholder="Mês" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    <SelectItem value="all">Todos meses</SelectItem>
-                    {availableMonths.map(month => (
-                      <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterType} onValueChange={(v) => setFilterType(v as UtilityType | 'all')}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    <SelectItem value="all">Todas contas</SelectItem>
-                    {enabledUtilities.map(type => (
-                      <SelectItem key={type} value={type}>{utilityConfig[type].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <h4 className="font-medium text-foreground">Histórico de Pagamentos</h4>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={filterYear} onValueChange={setFilterYear}>
+                    <SelectTrigger className="w-[110px]">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="all">Todos anos</SelectItem>
+                      {availableYears.map(year => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterMonth} onValueChange={setFilterMonth}>
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="all">Todos meses</SelectItem>
+                      {availableMonths.map(month => (
+                        <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterType} onValueChange={(v) => setFilterType(v as UtilityType | 'all')}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="all">Todas contas</SelectItem>
+                      {enabledUtilities.map(type => (
+                        <SelectItem key={type} value={type}>{utilityConfig[type].label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              {/* Quick Pay Bar */}
+              {selectablePayments.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="select-all"
+                      checked={selectedPaymentIds.size === selectablePayments.length && selectablePayments.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                    <Label htmlFor="select-all" className="text-sm cursor-pointer">
+                      {selectedPaymentIds.size > 0
+                        ? `${selectedPaymentIds.size} conta(s) selecionada(s)`
+                        : 'Selecionar pendentes'}
+                    </Label>
+                    {selectedPaymentIds.size > 0 && (
+                      <Badge variant="secondary" className="font-mono">
+                        Total: {formatCurrency(selectedTotal)}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowQuickPayDialog(true)}
+                    disabled={selectedPaymentIds.size === 0}
+                    className="gap-2"
+                  >
+                    <CheckCheck className="w-4 h-4" />
+                    Pagamento Rápido
+                  </Button>
+                </div>
+              )}
             </div>
 
             {filteredPayments.length > 0 ? (
@@ -396,6 +487,7 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]"></TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Referência</TableHead>
                       <TableHead>Vencimento</TableHead>
@@ -410,9 +502,23 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
                       const status = statusConfig[payment.status];
                       const Icon = config.icon;
                       const StatusIcon = status.icon;
+                      const isSelectable = payment.status !== 'paid';
+                      const isSelected = selectedPaymentIds.has(payment.id);
 
                       return (
-                        <TableRow key={payment.id}>
+                        <TableRow key={payment.id} className={cn(isSelected && "bg-primary/5")}>
+                          <TableCell>
+                            {isSelectable ? (
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => handleToggleSelect(payment.id)}
+                              />
+                            ) : (
+                              <div className="w-4 h-4 flex items-center justify-center text-success">
+                                <Check className="w-4 h-4" />
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Icon className="w-4 h-4" style={{ color: config.color }} />
@@ -710,6 +816,40 @@ export function UtilityPaymentsTab({ property, payments, onAddPayment, onUpdateP
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Quick Pay Confirmation Dialog */}
+      <AlertDialog open={showQuickPayDialog} onOpenChange={setShowQuickPayDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pagamento Rápido</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Marcar <strong>{selectedPaymentIds.size}</strong> conta(s) como paga(s)?
+                </p>
+                <p className="text-lg font-semibold text-foreground">
+                  Total: {formatCurrency(selectedTotal)}
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="quick-pay-date">Data do Pagamento</Label>
+                  <Input
+                    id="quick-pay-date"
+                    type="date"
+                    value={quickPayDate}
+                    onChange={(e) => setQuickPayDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleQuickPayConfirm}>
+              Confirmar Pagamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
