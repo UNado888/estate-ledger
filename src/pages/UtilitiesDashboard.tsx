@@ -46,7 +46,10 @@ import {
   CheckCheck,
   TrendingUp,
   TrendingDown,
-  Wallet
+  Wallet,
+  Calculator,
+  CalendarDays,
+  Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -154,6 +157,82 @@ export default function UtilitiesDashboard() {
     const variation = lastMonthTotal > 0 ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0;
     
     return { total, paid, pending, late, currentMonthTotal, lastMonthTotal, variation };
+  }, [utilityPayments]);
+
+  // Monthly averages and projections
+  const monthlyAnalysis = useMemo(() => {
+    // Group payments by month
+    const monthlyTotals: Record<string, number> = {};
+    const monthlyByType: Record<string, Record<UtilityType, number>> = {};
+    
+    utilityPayments.forEach(p => {
+      if (!monthlyTotals[p.referenceMonth]) {
+        monthlyTotals[p.referenceMonth] = 0;
+        monthlyByType[p.referenceMonth] = { water: 0, electricity: 0, gas: 0, condo: 0 };
+      }
+      monthlyTotals[p.referenceMonth] += p.amount;
+      monthlyByType[p.referenceMonth][p.utilityType] += p.amount;
+    });
+    
+    const months = Object.keys(monthlyTotals).sort();
+    const monthCount = months.length;
+    
+    // Calculate averages
+    const totalSum = Object.values(monthlyTotals).reduce((a, b) => a + b, 0);
+    const monthlyAverage = monthCount > 0 ? totalSum / monthCount : 0;
+    
+    // Average by type
+    const avgByType: Record<UtilityType, number> = { water: 0, electricity: 0, gas: 0, condo: 0 };
+    (['water', 'electricity', 'gas', 'condo'] as UtilityType[]).forEach(type => {
+      const typeTotal = utilityPayments
+        .filter(p => p.utilityType === type)
+        .reduce((sum, p) => sum + p.amount, 0);
+      const typeMonths = new Set(utilityPayments.filter(p => p.utilityType === type).map(p => p.referenceMonth)).size;
+      avgByType[type] = typeMonths > 0 ? typeTotal / typeMonths : 0;
+    });
+    
+    // Calculate trend (last 3 months vs previous 3 months)
+    const sortedMonths = months.slice(-6);
+    let trend = 0;
+    if (sortedMonths.length >= 4) {
+      const recentMonths = sortedMonths.slice(-3);
+      const olderMonths = sortedMonths.slice(0, 3);
+      const recentAvg = recentMonths.reduce((sum, m) => sum + (monthlyTotals[m] || 0), 0) / recentMonths.length;
+      const olderAvg = olderMonths.reduce((sum, m) => sum + (monthlyTotals[m] || 0), 0) / olderMonths.length;
+      trend = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
+    }
+    
+    // Project next 3 months based on average + trend
+    const now = new Date();
+    const projections: { month: string; projected: number; water: number; electricity: number; gas: number; condo: number }[] = [];
+    const trendMultiplier = 1 + (trend / 100);
+    
+    for (let i = 1; i <= 3; i++) {
+      const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const monthLabel = futureDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      const projectedTotal = monthlyAverage * Math.pow(trendMultiplier, i / 3);
+      
+      projections.push({
+        month: monthLabel,
+        projected: projectedTotal,
+        water: avgByType.water * Math.pow(trendMultiplier, i / 3),
+        electricity: avgByType.electricity * Math.pow(trendMultiplier, i / 3),
+        gas: avgByType.gas * Math.pow(trendMultiplier, i / 3),
+        condo: avgByType.condo * Math.pow(trendMultiplier, i / 3),
+      });
+    }
+    
+    // Annual projection
+    const annualProjection = monthlyAverage * 12;
+    
+    return {
+      monthlyAverage,
+      avgByType,
+      trend,
+      projections,
+      annualProjection,
+      monthCount,
+    };
   }, [utilityPayments]);
 
   // Stats by utility type
@@ -389,6 +468,143 @@ export default function UtilitiesDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Monthly Analysis Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Calculator className="w-4 h-4" />
+              Média Mensal
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(monthlyAnalysis.monthlyAverage)}</p>
+            <p className="text-xs text-muted-foreground mt-1">baseado em {monthlyAnalysis.monthCount} meses</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <CalendarDays className="w-4 h-4" />
+              Projeção Anual
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(monthlyAnalysis.annualProjection)}</p>
+            <p className="text-xs text-muted-foreground mt-1">estimativa 12 meses</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Próximo Mês (Est.)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">
+              {formatCurrency(monthlyAnalysis.projections[0]?.projected || 0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{monthlyAnalysis.projections[0]?.month}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              {monthlyAnalysis.trend >= 0 ? (
+                <TrendingUp className="w-4 h-4 text-destructive" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-success" />
+              )}
+              Tendência (3 meses)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className={cn(
+              "text-2xl font-bold",
+              monthlyAnalysis.trend >= 0 ? "text-destructive" : "text-success"
+            )}>
+              {monthlyAnalysis.trend >= 0 ? '+' : ''}{monthlyAnalysis.trend.toFixed(1)}%
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">últimos 3 vs anteriores</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Average by Type Cards */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground">Média Mensal por Tipo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {(['water', 'electricity', 'gas', 'condo'] as UtilityType[]).map(type => {
+              const config = utilityConfig[type];
+              const Icon = config.icon;
+              const avg = monthlyAnalysis.avgByType[type];
+              
+              if (avg === 0) return null;
+              
+              return (
+                <div key={type} className="bg-secondary/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className="w-5 h-5" style={{ color: config.color }} />
+                    <span className="font-medium text-foreground text-sm">{config.label}</span>
+                  </div>
+                  <p className="text-xl font-bold text-foreground">{formatCurrency(avg)}</p>
+                  <p className="text-xs text-muted-foreground">média/mês</p>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Projection Chart */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Projeção para os Próximos 3 Meses
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyAnalysis.projections}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <YAxis tickFormatter={(v) => `R$${v}`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))', 
+                    borderRadius: '8px' 
+                  }}
+                  formatter={(value: number, name: string) => [
+                    formatCurrency(value), 
+                    name === 'projected' ? 'Total Projetado' : utilityConfig[name as UtilityType]?.label || name
+                  ]}
+                />
+                <Legend formatter={(value) => 
+                  value === 'projected' ? 'Total Projetado' : utilityConfig[value as UtilityType]?.label || value
+                } />
+                <Bar dataKey="water" fill={utilityConfig.water.color} stackId="a" />
+                <Bar dataKey="electricity" fill={utilityConfig.electricity.color} stackId="a" />
+                <Bar dataKey="gas" fill={utilityConfig.gas.color} stackId="a" />
+                <Bar dataKey="condo" fill={utilityConfig.condo.color} stackId="a" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-xs text-muted-foreground text-center mt-3">
+            * Projeções baseadas na média histórica e tendência dos últimos meses
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Utility Type Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
