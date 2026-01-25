@@ -49,8 +49,11 @@ import {
   Wallet,
   Calculator,
   CalendarDays,
-  Target
+  Target,
+  Settings2,
+  X
 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -96,6 +99,17 @@ export default function UtilitiesDashboard() {
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
   const [showQuickPayDialog, setShowQuickPayDialog] = useState(false);
   const [quickPayDate, setQuickPayDate] = useState(new Date().toISOString().slice(0, 10));
+  
+  // Budget goals state
+  type UtilityBudgets = Record<UtilityType, number>;
+  const [budgetGoals, setBudgetGoals] = useLocalStorage<UtilityBudgets>('imobiliaria-utility-budgets', {
+    water: 0,
+    electricity: 0,
+    gas: 0,
+    condo: 0,
+  });
+  const [showBudgetDialog, setShowBudgetDialog] = useState(false);
+  const [editingBudgets, setEditingBudgets] = useState<UtilityBudgets>({ ...budgetGoals });
 
   const properties = mockProperties;
 
@@ -234,6 +248,60 @@ export default function UtilitiesDashboard() {
       monthCount,
     };
   }, [utilityPayments]);
+
+  // Current month spending by type (for budget comparison)
+  const currentMonthByType = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.toISOString().slice(0, 7);
+    
+    const result: Record<UtilityType, number> = {
+      water: 0,
+      electricity: 0,
+      gas: 0,
+      condo: 0,
+    };
+    
+    utilityPayments
+      .filter(p => p.referenceMonth === currentMonth)
+      .forEach(p => {
+        result[p.utilityType] += p.amount;
+      });
+    
+    return result;
+  }, [utilityPayments]);
+
+  // Budget progress calculation
+  const budgetProgress = useMemo(() => {
+    return (['water', 'electricity', 'gas', 'condo'] as UtilityType[]).map(type => {
+      const budget = budgetGoals[type];
+      const spent = currentMonthByType[type];
+      const avg = monthlyAnalysis.avgByType[type];
+      const percentage = budget > 0 ? Math.min((spent / budget) * 100, 150) : 0;
+      const isOverBudget = budget > 0 && spent > budget;
+      const remaining = budget > 0 ? budget - spent : 0;
+      
+      return {
+        type,
+        budget,
+        spent,
+        avg,
+        percentage,
+        isOverBudget,
+        remaining,
+      };
+    });
+  }, [budgetGoals, currentMonthByType, monthlyAnalysis.avgByType]);
+
+  const handleSaveBudgets = () => {
+    setBudgetGoals(editingBudgets);
+    setShowBudgetDialog(false);
+    toast.success('Metas de orçamento atualizadas');
+  };
+
+  const handleOpenBudgetDialog = () => {
+    setEditingBudgets({ ...budgetGoals });
+    setShowBudgetDialog(true);
+  };
 
   // Stats by utility type
   const statsByType = useMemo(() => {
@@ -534,6 +602,171 @@ export default function UtilitiesDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Budget Goals Card */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <Target className="w-5 h-5" />
+              Metas de Gastos Mensais
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={handleOpenBudgetDialog}>
+              <Settings2 className="w-4 h-4 mr-2" />
+              Configurar Metas
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {budgetProgress.every(b => b.budget === 0) ? (
+            <div className="text-center py-8 bg-secondary/30 rounded-lg">
+              <Target className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground">Nenhuma meta definida</p>
+              <p className="text-xs text-muted-foreground mt-1">Configure metas para acompanhar seus gastos</p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={handleOpenBudgetDialog}>
+                Definir Metas
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {budgetProgress.map(item => {
+                if (item.budget === 0) return null;
+                
+                const config = utilityConfig[item.type];
+                const Icon = config.icon;
+                
+                return (
+                  <div key={item.type} className="bg-secondary/30 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-5 h-5" style={{ color: config.color }} />
+                        <span className="font-medium text-foreground">{config.label}</span>
+                      </div>
+                      <Badge 
+                        variant={item.isOverBudget ? "destructive" : item.percentage > 80 ? "outline" : "secondary"}
+                        className={cn(
+                          item.isOverBudget && "bg-destructive text-destructive-foreground",
+                          !item.isOverBudget && item.percentage > 80 && "border-warning text-warning"
+                        )}
+                      >
+                        {item.isOverBudget ? 'Acima' : `${item.percentage.toFixed(0)}%`}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Progress 
+                        value={Math.min(item.percentage, 100)} 
+                        className={cn(
+                          "h-3",
+                          item.isOverBudget && "[&>div]:bg-destructive",
+                          !item.isOverBudget && item.percentage > 80 && "[&>div]:bg-warning"
+                        )}
+                      />
+                      
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          Gasto: <span className={cn(
+                            "font-medium",
+                            item.isOverBudget ? "text-destructive" : "text-foreground"
+                          )}>{formatCurrency(item.spent)}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          Meta: <span className="font-medium text-foreground">{formatCurrency(item.budget)}</span>
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Média: {formatCurrency(item.avg)}/mês</span>
+                        {item.isOverBudget ? (
+                          <span className="text-destructive font-medium">
+                            Excedido em {formatCurrency(Math.abs(item.remaining))}
+                          </span>
+                        ) : (
+                          <span className="text-success">
+                            Restante: {formatCurrency(item.remaining)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Budget Dialog */}
+      <AlertDialog open={showBudgetDialog} onOpenChange={setShowBudgetDialog}>
+        <AlertDialogContent className="bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5" />
+              Configurar Metas de Gastos
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Defina limites mensais para cada tipo de utilidade. Deixe em 0 para não monitorar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {(['water', 'electricity', 'gas', 'condo'] as UtilityType[]).map(type => {
+              const config = utilityConfig[type];
+              const Icon = config.icon;
+              const avg = monthlyAnalysis.avgByType[type];
+              
+              return (
+                <div key={type} className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 w-32">
+                    <Icon className="w-5 h-5" style={{ color: config.color }} />
+                    <span className="font-medium text-foreground text-sm">{config.label}</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={editingBudgets[type] || ''}
+                        onChange={(e) => setEditingBudgets(prev => ({
+                          ...prev,
+                          [type]: parseFloat(e.target.value) || 0
+                        }))}
+                        className="pl-10"
+                        placeholder="0,00"
+                      />
+                    </div>
+                    {avg > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Média histórica: {formatCurrency(avg)}/mês
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="h-auto p-0 ml-2 text-xs"
+                          onClick={() => setEditingBudgets(prev => ({
+                            ...prev,
+                            [type]: Math.ceil(avg / 50) * 50 // Round up to nearest 50
+                          }))}
+                        >
+                          Usar como base
+                        </Button>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveBudgets}>
+              Salvar Metas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Average by Type Cards */}
       <Card className="bg-card border-border">
