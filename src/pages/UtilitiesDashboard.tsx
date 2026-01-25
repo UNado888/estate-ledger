@@ -543,21 +543,112 @@ export default function UtilitiesDashboard() {
         </Card>
       </div>
 
-      {/* Costs by Property */}
+      {/* Comparative Chart - Property Comparison */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-foreground">Custos por Imóvel</CardTitle>
+          <CardTitle className="text-foreground">Comparativo de Gastos por Imóvel</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={Object.entries(statsByProperty)
+                  .map(([propertyId, data]) => {
+                    const property = propertyMap[propertyId];
+                    if (!property) return null;
+                    
+                    // Calculate totals by utility type for this property
+                    const utilityBreakdown = utilityPayments
+                      .filter(p => p.propertyId === propertyId)
+                      .reduce((acc, p) => {
+                        acc[p.utilityType] = (acc[p.utilityType] || 0) + p.amount;
+                        return acc;
+                      }, {} as Record<UtilityType, number>);
+                    
+                    return {
+                      name: property.name.length > 20 ? property.name.slice(0, 20) + '...' : property.name,
+                      fullName: property.name,
+                      total: data.total,
+                      pending: data.pending,
+                      water: utilityBreakdown.water || 0,
+                      electricity: utilityBreakdown.electricity || 0,
+                      gas: utilityBreakdown.gas || 0,
+                      condo: utilityBreakdown.condo || 0,
+                    };
+                  })
+                  .filter(Boolean)
+                  .sort((a, b) => (b?.total || 0) - (a?.total || 0))
+                }
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  type="number" 
+                  tickFormatter={(v) => `R$${v.toLocaleString()}`} 
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} 
+                />
+                <YAxis 
+                  type="category" 
+                  dataKey="name" 
+                  width={120}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} 
+                />
+                <Tooltip
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))', 
+                    borderRadius: '8px' 
+                  }}
+                  formatter={(value: number, name: string) => [
+                    formatCurrency(value), 
+                    utilityConfig[name as UtilityType]?.label || name
+                  ]}
+                  labelFormatter={(label, payload) => {
+                    const item = payload?.[0]?.payload;
+                    return item?.fullName || label;
+                  }}
+                />
+                <Legend formatter={(value) => utilityConfig[value as UtilityType]?.label || value} />
+                <Bar dataKey="water" fill={utilityConfig.water.color} stackId="a" />
+                <Bar dataKey="electricity" fill={utilityConfig.electricity.color} stackId="a" />
+                <Bar dataKey="gas" fill={utilityConfig.gas.color} stackId="a" />
+                <Bar dataKey="condo" fill={utilityConfig.condo.color} stackId="a" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Costs by Property Summary */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground">Resumo por Imóvel</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {Object.entries(statsByProperty).map(([propertyId, data]) => {
+            {Object.entries(statsByProperty)
+              .sort(([, a], [, b]) => b.total - a.total)
+              .map(([propertyId, data]) => {
               const property = propertyMap[propertyId];
               if (!property) return null;
               
+              // Calculate percentage of total
+              const percentOfTotal = globalStats.total > 0 
+                ? ((data.total / globalStats.total) * 100).toFixed(1) 
+                : 0;
+              
               return (
                 <div key={propertyId} className="bg-secondary/50 rounded-lg p-4">
-                  <p className="font-medium text-foreground text-sm truncate">{property.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{property.address}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground text-sm truncate">{property.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{property.address}</p>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0 text-xs">
+                      {percentOfTotal}%
+                    </Badge>
+                  </div>
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-lg font-bold text-foreground">{formatCurrency(data.total)}</span>
                     {data.pending > 0 && (
@@ -565,6 +656,25 @@ export default function UtilitiesDashboard() {
                         {formatCurrency(data.pending)} pend.
                       </Badge>
                     )}
+                  </div>
+                  {/* Mini breakdown */}
+                  <div className="flex gap-1 mt-2">
+                    {(['water', 'electricity', 'gas', 'condo'] as UtilityType[]).map(type => {
+                      const typeTotal = utilityPayments
+                        .filter(p => p.propertyId === propertyId && p.utilityType === type)
+                        .reduce((sum, p) => sum + p.amount, 0);
+                      if (typeTotal === 0) return null;
+                      const Icon = utilityConfig[type].icon;
+                      return (
+                        <div 
+                          key={type} 
+                          className="flex items-center gap-1 text-xs text-muted-foreground"
+                          title={`${utilityConfig[type].label}: ${formatCurrency(typeTotal)}`}
+                        >
+                          <Icon className="w-3 h-3" style={{ color: utilityConfig[type].color }} />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
