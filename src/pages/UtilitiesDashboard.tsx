@@ -53,7 +53,10 @@ import {
   Settings2,
   X,
   History,
-  BarChart3
+  BarChart3,
+  ArrowUpRight,
+  ArrowDownRight,
+  Scale
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -307,6 +310,112 @@ export default function UtilitiesDashboard() {
       };
     });
   }, [budgetGoals, currentMonthByType, monthlyAnalysis.avgByType]);
+
+  // Comparative budget analysis - tracks which types exceed budget most across history
+  const budgetComparativeAnalysis = useMemo(() => {
+    // Calculate historical averages of budget adherence per type
+    const typePerformance: Record<UtilityType, { 
+      avgPerformance: number; 
+      timesExceeded: number; 
+      totalExcess: number;
+      totalSavings: number;
+      monthsTracked: number;
+      trend: 'improving' | 'worsening' | 'stable';
+    }> = {
+      water: { avgPerformance: 0, timesExceeded: 0, totalExcess: 0, totalSavings: 0, monthsTracked: 0, trend: 'stable' },
+      electricity: { avgPerformance: 0, timesExceeded: 0, totalExcess: 0, totalSavings: 0, monthsTracked: 0, trend: 'stable' },
+      gas: { avgPerformance: 0, timesExceeded: 0, totalExcess: 0, totalSavings: 0, monthsTracked: 0, trend: 'stable' },
+      condo: { avgPerformance: 0, timesExceeded: 0, totalExcess: 0, totalSavings: 0, monthsTracked: 0, trend: 'stable' },
+    };
+
+    // Get monthly spending grouped by type and month
+    const monthlyByType: Record<string, Record<UtilityType, number>> = {};
+    utilityPayments.forEach(p => {
+      if (!monthlyByType[p.referenceMonth]) {
+        monthlyByType[p.referenceMonth] = { water: 0, electricity: 0, gas: 0, condo: 0 };
+      }
+      monthlyByType[p.referenceMonth][p.utilityType] += p.amount;
+    });
+
+    const months = Object.keys(monthlyByType).sort();
+    
+    // For each type, calculate performance vs budget across all months
+    (['water', 'electricity', 'gas', 'condo'] as UtilityType[]).forEach(type => {
+      const budget = budgetGoals[type];
+      if (budget <= 0) return;
+
+      let totalPerformance = 0;
+      let performanceCount = 0;
+      const recentPerformances: number[] = [];
+
+      months.forEach(month => {
+        const spent = monthlyByType[month]?.[type] || 0;
+        if (spent > 0) {
+          const performance = (spent / budget) * 100;
+          totalPerformance += performance;
+          performanceCount++;
+          recentPerformances.push(performance);
+
+          if (spent > budget) {
+            typePerformance[type].timesExceeded++;
+            typePerformance[type].totalExcess += (spent - budget);
+          } else {
+            typePerformance[type].totalSavings += (budget - spent);
+          }
+        }
+      });
+
+      typePerformance[type].avgPerformance = performanceCount > 0 ? totalPerformance / performanceCount : 0;
+      typePerformance[type].monthsTracked = performanceCount;
+
+      // Calculate trend from last 3 months vs previous 3
+      if (recentPerformances.length >= 4) {
+        const recent = recentPerformances.slice(-3);
+        const older = recentPerformances.slice(-6, -3);
+        const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+        const olderAvg = older.reduce((a, b) => a + b, 0) / older.length;
+        
+        if (recentAvg < olderAvg - 5) {
+          typePerformance[type].trend = 'improving';
+        } else if (recentAvg > olderAvg + 5) {
+          typePerformance[type].trend = 'worsening';
+        }
+      }
+    });
+
+    // Sort by most problematic (highest avg performance = most over budget)
+    const sortedTypes = (['water', 'electricity', 'gas', 'condo'] as UtilityType[])
+      .filter(type => budgetGoals[type] > 0)
+      .sort((a, b) => typePerformance[b].avgPerformance - typePerformance[a].avgPerformance);
+
+    const worstType = sortedTypes[0] || null;
+    const bestType = sortedTypes[sortedTypes.length - 1] || null;
+
+    // Chart data for bar comparison
+    const chartData = sortedTypes.map(type => ({
+      type,
+      name: utilityConfig[type].label,
+      avgPerformance: typePerformance[type].avgPerformance,
+      timesExceeded: typePerformance[type].timesExceeded,
+      monthsTracked: typePerformance[type].monthsTracked,
+      exceedRate: typePerformance[type].monthsTracked > 0 
+        ? (typePerformance[type].timesExceeded / typePerformance[type].monthsTracked) * 100 
+        : 0,
+      totalExcess: typePerformance[type].totalExcess,
+      totalSavings: typePerformance[type].totalSavings,
+      trend: typePerformance[type].trend,
+      fill: utilityConfig[type].color,
+    }));
+
+    return {
+      typePerformance,
+      sortedTypes,
+      worstType,
+      bestType,
+      chartData,
+      hasData: sortedTypes.length > 0,
+    };
+  }, [utilityPayments, budgetGoals]);
 
   // Budget history chart data - combines historical records with current month
   const budgetHistoryChartData = useMemo(() => {
@@ -1024,6 +1133,234 @@ export default function UtilitiesDashboard() {
               
               <p className="text-xs text-muted-foreground text-center mt-4">
                 * A linha de 100% indica quando o gasto real iguala o orçamento. Acima = excedido, abaixo = economia.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Comparative Budget Analysis */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground flex items-center gap-2">
+            <Scale className="w-5 h-5" />
+            Análise Comparativa: Performance por Tipo
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!budgetComparativeAnalysis.hasData ? (
+            <div className="text-center py-12 bg-secondary/30 rounded-lg">
+              <Scale className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground">Sem metas definidas para análise</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configure metas para ver qual tipo mais excede o orçamento
+              </p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={handleOpenBudgetDialog}>
+                Definir Metas
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Summary Insight */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {budgetComparativeAnalysis.worstType && (
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="w-5 h-5 text-destructive" />
+                      <span className="text-sm font-medium text-destructive">Maior Risco</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const Icon = utilityConfig[budgetComparativeAnalysis.worstType].icon;
+                        return <Icon className="w-8 h-8" style={{ color: utilityConfig[budgetComparativeAnalysis.worstType].color }} />;
+                      })()}
+                      <div>
+                        <p className="font-bold text-foreground text-lg">
+                          {utilityConfig[budgetComparativeAnalysis.worstType].label}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Média de {budgetComparativeAnalysis.typePerformance[budgetComparativeAnalysis.worstType].avgPerformance.toFixed(0)}% do orçamento
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 text-xs">
+                      <Badge variant="destructive">
+                        {budgetComparativeAnalysis.typePerformance[budgetComparativeAnalysis.worstType].timesExceeded}x excedido
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        Total: {formatCurrency(budgetComparativeAnalysis.typePerformance[budgetComparativeAnalysis.worstType].totalExcess)} acima
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {budgetComparativeAnalysis.bestType && budgetComparativeAnalysis.bestType !== budgetComparativeAnalysis.worstType && (
+                  <div className="bg-success/10 border border-success/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Check className="w-5 h-5 text-success" />
+                      <span className="text-sm font-medium text-success">Melhor Performance</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const Icon = utilityConfig[budgetComparativeAnalysis.bestType].icon;
+                        return <Icon className="w-8 h-8" style={{ color: utilityConfig[budgetComparativeAnalysis.bestType].color }} />;
+                      })()}
+                      <div>
+                        <p className="font-bold text-foreground text-lg">
+                          {utilityConfig[budgetComparativeAnalysis.bestType].label}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Média de {budgetComparativeAnalysis.typePerformance[budgetComparativeAnalysis.bestType].avgPerformance.toFixed(0)}% do orçamento
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 text-xs">
+                      <Badge className="bg-success/20 text-success hover:bg-success/30">
+                        {formatCurrency(budgetComparativeAnalysis.typePerformance[budgetComparativeAnalysis.bestType].totalSavings)} economizados
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Comparative Bar Chart */}
+              <div className="h-[280px] mb-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={budgetComparativeAnalysis.chartData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      type="number" 
+                      domain={[0, (dataMax: number) => Math.max(150, Math.ceil(dataMax / 10) * 10)]}
+                      tickFormatter={(v) => `${v}%`}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                    />
+                    <YAxis 
+                      type="category" 
+                      dataKey="name" 
+                      width={90}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                    />
+                    <Tooltip
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '8px' 
+                      }}
+                      formatter={(value: number, name: string) => {
+                        if (name === 'avgPerformance') return [`${value.toFixed(1)}%`, 'Performance Média'];
+                        if (name === 'exceedRate') return [`${value.toFixed(1)}%`, 'Taxa de Excesso'];
+                        return [value, name];
+                      }}
+                    />
+                    <ReferenceLine 
+                      x={100} 
+                      stroke="hsl(var(--destructive))" 
+                      strokeDasharray="5 5"
+                      label={{ value: 'Meta', fill: 'hsl(var(--destructive))', fontSize: 11, position: 'top' }}
+                    />
+                    <Bar 
+                      dataKey="avgPerformance" 
+                      radius={[0, 4, 4, 0]}
+                    >
+                      {budgetComparativeAnalysis.chartData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.avgPerformance > 100 ? 'hsl(var(--destructive))' : entry.fill}
+                          opacity={0.8}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Detailed Type Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {budgetComparativeAnalysis.chartData.map(item => {
+                  const isOverBudget = item.avgPerformance > 100;
+                  const Icon = utilityConfig[item.type].icon;
+                  
+                  return (
+                    <div 
+                      key={item.type} 
+                      className={cn(
+                        "rounded-lg p-4 border",
+                        isOverBudget 
+                          ? "bg-destructive/5 border-destructive/30" 
+                          : "bg-secondary/30 border-border"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-5 h-5" style={{ color: item.fill }} />
+                          <span className="font-medium text-foreground text-sm">{item.name}</span>
+                        </div>
+                        {item.trend !== 'stable' && (
+                          <div className={cn(
+                            "flex items-center gap-1 text-xs",
+                            item.trend === 'improving' ? "text-success" : "text-destructive"
+                          )}>
+                            {item.trend === 'improving' ? (
+                              <ArrowDownRight className="w-3 h-3" />
+                            ) : (
+                              <ArrowUpRight className="w-3 h-3" />
+                            )}
+                            <span>{item.trend === 'improving' ? 'Melhorando' : 'Piorando'}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-2xl font-bold text-foreground">
+                            {item.avgPerformance.toFixed(0)}%
+                          </span>
+                          <Badge 
+                            variant={isOverBudget ? "destructive" : "secondary"}
+                            className={!isOverBudget ? "bg-success/20 text-success" : ""}
+                          >
+                            {isOverBudget ? 'Acima' : 'OK'}
+                          </Badge>
+                        </div>
+                        
+                        <Progress 
+                          value={Math.min(item.avgPerformance, 150)} 
+                          max={150}
+                          className={cn(
+                            "h-2",
+                            isOverBudget && "[&>div]:bg-destructive"
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div>
+                            <span className="block">Excedeu</span>
+                            <span className="font-medium text-foreground">{item.timesExceeded}x</span>
+                          </div>
+                          <div>
+                            <span className="block">Meses</span>
+                            <span className="font-medium text-foreground">{item.monthsTracked}</span>
+                          </div>
+                        </div>
+                        
+                        {item.totalExcess > 0 && (
+                          <p className="text-xs text-destructive">
+                            Total excedido: {formatCurrency(item.totalExcess)}
+                          </p>
+                        )}
+                        {item.totalSavings > 0 && (
+                          <p className="text-xs text-success">
+                            Total economizado: {formatCurrency(item.totalSavings)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <p className="text-xs text-muted-foreground text-center mt-4">
+                * Performance média baseada no histórico de pagamentos vs metas definidas. 100% = exatamente na meta.
               </p>
             </>
           )}
