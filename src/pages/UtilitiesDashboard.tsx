@@ -51,7 +51,9 @@ import {
   CalendarDays,
   Target,
   Settings2,
-  X
+  X,
+  History,
+  BarChart3
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -68,6 +70,11 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
+  ComposedChart,
+  Area,
+  ReferenceLine,
 } from 'recharts';
 
 const utilityConfig: Record<UtilityType, { label: string; icon: typeof Droplets; color: string }> = {
@@ -110,6 +117,15 @@ export default function UtilitiesDashboard() {
   });
   const [showBudgetDialog, setShowBudgetDialog] = useState(false);
   const [editingBudgets, setEditingBudgets] = useState<UtilityBudgets>({ ...budgetGoals });
+  
+  // Budget history state - stores monthly snapshots of budgets and actual spending
+  type BudgetHistoryRecord = {
+    month: string; // YYYY-MM format
+    budgets: UtilityBudgets;
+    actual: UtilityBudgets;
+    total: { budget: number; actual: number };
+  };
+  const [budgetHistory, setBudgetHistory] = useLocalStorage<BudgetHistoryRecord[]>('imobiliaria-budget-history', []);
 
   const properties = mockProperties;
 
@@ -291,6 +307,96 @@ export default function UtilitiesDashboard() {
       };
     });
   }, [budgetGoals, currentMonthByType, monthlyAnalysis.avgByType]);
+
+  // Budget history chart data - combines historical records with current month
+  const budgetHistoryChartData = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.toISOString().slice(0, 7);
+    
+    // Get monthly spending data for the last 6 months
+    const last6Months: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      last6Months.push(date.toISOString().slice(0, 7));
+    }
+    
+    // Calculate actual spending by month
+    const actualByMonth: Record<string, UtilityBudgets> = {};
+    utilityPayments.forEach(p => {
+      if (!actualByMonth[p.referenceMonth]) {
+        actualByMonth[p.referenceMonth] = { water: 0, electricity: 0, gas: 0, condo: 0 };
+      }
+      actualByMonth[p.referenceMonth][p.utilityType] += p.amount;
+    });
+    
+    // Merge with budget history
+    const historyMap: Record<string, BudgetHistoryRecord> = {};
+    budgetHistory.forEach(record => {
+      historyMap[record.month] = record;
+    });
+    
+    // Build chart data
+    return last6Months.map(month => {
+      const date = new Date(month + '-01');
+      const label = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      
+      const actual = actualByMonth[month] || { water: 0, electricity: 0, gas: 0, condo: 0 };
+      const totalActual = actual.water + actual.electricity + actual.gas + actual.condo;
+      
+      // For current month, use current budget goals; for past months, use history or current goals
+      const historicalBudget = historyMap[month]?.budgets || (month === currentMonth ? budgetGoals : budgetGoals);
+      const totalBudget = historicalBudget.water + historicalBudget.electricity + historicalBudget.gas + historicalBudget.condo;
+      
+      // Calculate performance percentage (how much of budget was used)
+      const performance = totalBudget > 0 ? (totalActual / totalBudget) * 100 : 0;
+      const savings = totalBudget - totalActual;
+      const status = totalBudget === 0 ? 'none' : totalActual <= totalBudget ? 'ok' : 'over';
+      
+      return {
+        month,
+        label,
+        actual: totalActual,
+        budget: totalBudget,
+        water: actual.water,
+        electricity: actual.electricity,
+        gas: actual.gas,
+        condo: actual.condo,
+        performance,
+        savings,
+        status,
+      };
+    });
+  }, [utilityPayments, budgetHistory, budgetGoals]);
+
+  // Auto-save budget history at end of each month
+  const handleSaveBudgetSnapshot = () => {
+    const now = new Date();
+    const currentMonth = now.toISOString().slice(0, 7);
+    
+    // Check if we already have a record for current month
+    const existingIndex = budgetHistory.findIndex(r => r.month === currentMonth);
+    
+    const actual: UtilityBudgets = { ...currentMonthByType };
+    const totalActual = actual.water + actual.electricity + actual.gas + actual.condo;
+    const totalBudget = budgetGoals.water + budgetGoals.electricity + budgetGoals.gas + budgetGoals.condo;
+    
+    const newRecord: BudgetHistoryRecord = {
+      month: currentMonth,
+      budgets: { ...budgetGoals },
+      actual,
+      total: { budget: totalBudget, actual: totalActual },
+    };
+    
+    if (existingIndex >= 0) {
+      // Update existing record
+      setBudgetHistory(prev => prev.map((r, i) => i === existingIndex ? newRecord : r));
+    } else {
+      // Add new record
+      setBudgetHistory(prev => [...prev, newRecord].slice(-12)); // Keep last 12 months
+    }
+    
+    toast.success('Snapshot do mês salvo no histórico');
+  };
 
   const handleSaveBudgets = () => {
     setBudgetGoals(editingBudgets);
@@ -767,6 +873,162 @@ export default function UtilitiesDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Budget History Chart */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Histórico: Performance vs Orçamento
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={handleSaveBudgetSnapshot}>
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Salvar Snapshot
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {budgetHistoryChartData.every(d => d.budget === 0 && d.actual === 0) ? (
+            <div className="text-center py-12 bg-secondary/30 rounded-lg">
+              <History className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground">Nenhum dado histórico disponível</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configure metas e registre pagamentos para visualizar o histórico
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={budgetHistoryChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="label" 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                    />
+                    <YAxis 
+                      yAxisId="left"
+                      tickFormatter={(v) => `R$${v.toLocaleString()}`} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} 
+                    />
+                    <YAxis 
+                      yAxisId="right"
+                      orientation="right"
+                      tickFormatter={(v) => `${v}%`} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      domain={[0, 150]}
+                    />
+                    <Tooltip
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '8px' 
+                      }}
+                      formatter={(value: number, name: string) => {
+                        if (name === 'performance') return [`${value.toFixed(1)}%`, 'Performance'];
+                        if (name === 'actual') return [formatCurrency(value), 'Gasto Real'];
+                        if (name === 'budget') return [formatCurrency(value), 'Orçamento'];
+                        return [formatCurrency(value), name];
+                      }}
+                    />
+                    <Legend 
+                      formatter={(value) => {
+                        if (value === 'actual') return 'Gasto Real';
+                        if (value === 'budget') return 'Orçamento';
+                        if (value === 'performance') return 'Performance (%)';
+                        return value;
+                      }}
+                    />
+                    <ReferenceLine 
+                      yAxisId="right" 
+                      y={100} 
+                      stroke="hsl(var(--destructive))" 
+                      strokeDasharray="5 5" 
+                      label={{ value: '100%', fill: 'hsl(var(--destructive))', fontSize: 10 }}
+                    />
+                    <Bar 
+                      yAxisId="left" 
+                      dataKey="actual" 
+                      fill="hsl(var(--primary))" 
+                      radius={[4, 4, 0, 0]}
+                      opacity={0.8}
+                    />
+                    <Bar 
+                      yAxisId="left" 
+                      dataKey="budget" 
+                      fill="hsl(var(--muted-foreground))" 
+                      radius={[4, 4, 0, 0]}
+                      opacity={0.4}
+                    />
+                    <Line 
+                      yAxisId="right" 
+                      type="monotone" 
+                      dataKey="performance" 
+                      stroke="hsl(var(--warning))" 
+                      strokeWidth={3}
+                      dot={{ fill: 'hsl(var(--warning))', strokeWidth: 2 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* Monthly summary cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-4">
+                {budgetHistoryChartData.map(item => {
+                  const isOverBudget = item.status === 'over';
+                  const hasNoBudget = item.status === 'none';
+                  
+                  return (
+                    <div 
+                      key={item.month} 
+                      className={cn(
+                        "rounded-lg p-3 text-center",
+                        hasNoBudget && "bg-secondary/30",
+                        !hasNoBudget && !isOverBudget && "bg-success/10 border border-success/30",
+                        isOverBudget && "bg-destructive/10 border border-destructive/30"
+                      )}
+                    >
+                      <p className="text-xs text-muted-foreground font-medium">{item.label}</p>
+                      <p className="text-sm font-bold text-foreground mt-1">
+                        {formatCurrency(item.actual)}
+                      </p>
+                      {!hasNoBudget && (
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            de {formatCurrency(item.budget)}
+                          </p>
+                          <Badge 
+                            variant={isOverBudget ? "destructive" : "secondary"}
+                            className={cn(
+                              "mt-1 text-xs",
+                              !isOverBudget && "bg-success/20 text-success hover:bg-success/30"
+                            )}
+                          >
+                            {item.performance.toFixed(0)}%
+                          </Badge>
+                        </>
+                      )}
+                      {item.savings !== 0 && item.budget > 0 && (
+                        <p className={cn(
+                          "text-xs mt-1",
+                          item.savings > 0 ? "text-success" : "text-destructive"
+                        )}>
+                          {item.savings > 0 ? 'Economia:' : 'Excesso:'} {formatCurrency(Math.abs(item.savings))}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <p className="text-xs text-muted-foreground text-center mt-4">
+                * A linha de 100% indica quando o gasto real iguala o orçamento. Acima = excedido, abaixo = economia.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Average by Type Cards */}
       <Card className="bg-card border-border">
