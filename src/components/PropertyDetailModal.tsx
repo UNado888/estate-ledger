@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt } from 'lucide-react';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -29,15 +29,6 @@ import {
 import { AssignTenantModal } from './AssignTenantModal';
 import { RegisterPaymentModal } from './RegisterPaymentModal';
 import { toast } from 'sonner';
-import {
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-} from 'recharts';
 
 interface PropertyDetailModalProps {
   property: Property;
@@ -110,8 +101,6 @@ export function PropertyDetailModal({
   const furniture = mockFurniture.filter(f => f.propertyId === currentProperty.id);
 
   const totalInvestment = currentProperty.acquisitionCost + currentProperty.renovationCost;
-  const equity = currentProperty.currentMarketValue - totalInvestment;
-  const equityPercent = ((equity / totalInvestment) * 100).toFixed(1);
   const roi = ((currentProperty.monthlyRent * 12) / totalInvestment * 100).toFixed(2);
   const netMonthly = currentProperty.monthlyRent - currentProperty.iptu - currentProperty.condoFee;
   const paybackYears = (totalInvestment / (netMonthly * 12)).toFixed(1);
@@ -119,17 +108,6 @@ export function PropertyDetailModal({
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
-
-  // Generate equity chart data
-  const equityData = Array.from({ length: 10 }, (_, i) => {
-    const year = new Date().getFullYear() - (9 - i);
-    const appreciation = 1 + (i * 0.035);
-    return {
-      year: year.toString(),
-      investido: totalInvestment,
-      valorMercado: Math.round(totalInvestment * appreciation * (0.95 + Math.random() * 0.1)),
-    };
-  });
 
   const handleStatusChange = (newStatus: Property['status']) => {
     const updatedProperty = { ...currentProperty, status: newStatus };
@@ -405,30 +383,167 @@ export function PropertyDetailModal({
             </TabsContent>
 
             <TabsContent value="financial" className="space-y-6">
-              {/* Equity Chart */}
+              {/* Tenant Financial History */}
               <div className="bg-secondary/30 rounded-xl p-5">
-                <h3 className="font-semibold text-foreground mb-4">Evolução do Equity (10 anos)</h3>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={equityData}>
-                      <defs>
-                        <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="year" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <YAxis tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                        formatter={(value: number) => [formatCurrency(value), '']}
-                      />
-                      <Area type="monotone" dataKey="investido" stroke="hsl(var(--muted-foreground))" fill="none" strokeDasharray="5 5" name="Investido" />
-                      <Area type="monotone" dataKey="valorMercado" stroke="hsl(142, 71%, 45%)" fillOpacity={1} fill="url(#colorValor)" name="Valor de Mercado" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold text-foreground">Histórico Financeiro por Inquilino</h3>
                 </div>
+                {rentalHistoryState.length > 0 ? (
+                  <div className="space-y-4">
+                    {rentalHistoryState.map((rental) => {
+                      const tenant = allTenants.find(t => t.id === rental.tenantId);
+                      const startDate = new Date(rental.startDate);
+                      const endDate = rental.endDate ? new Date(rental.endDate) : new Date();
+                      
+                      // Calculate duration in months
+                      const durationMonths = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                      const years = Math.floor(durationMonths / 12);
+                      const months = durationMonths % 12;
+                      const durationText = years > 0 
+                        ? `${years} ano${years > 1 ? 's' : ''}${months > 0 ? ` e ${months} mês${months > 1 ? 'es' : ''}` : ''}`
+                        : `${months} mês${months > 1 ? 'es' : ''}`;
+                      
+                      // Calculate total revenue from this tenant
+                      const totalRevenue = durationMonths * rental.monthlyRent;
+                      
+                      // Calculate costs (IPTU + Condomínio + IR estimado)
+                      const monthlyIR = rental.monthlyRent * 0.05;
+                      const totalCosts = durationMonths * (currentProperty.iptu + currentProperty.condoFee + monthlyIR);
+                      
+                      // Net profit
+                      const netProfit = totalRevenue - totalCosts;
+                      const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+                      
+                      const isActive = !rental.endDate;
+                      
+                      return (
+                        <div 
+                          key={rental.id} 
+                          className={cn(
+                            "p-4 rounded-lg border",
+                            isActive 
+                              ? "bg-primary/5 border-primary/30" 
+                              : "bg-card border-border"
+                          )}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center",
+                                isActive ? "bg-primary/10" : "bg-secondary"
+                              )}>
+                                <Users className={cn(
+                                  "w-5 h-5",
+                                  isActive ? "text-primary" : "text-muted-foreground"
+                                )} />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-foreground">{tenant?.name || 'Inquilino Removido'}</p>
+                                  {isActive && (
+                                    <Badge className="bg-success/10 text-success text-xs">Ativo</Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  <span>
+                                    {startDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })} - {rental.endDate ? endDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : 'Atual'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {tenant && [...Array(5)].map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  className={cn(
+                                    "w-4 h-4",
+                                    i < tenant.rating ? "text-warning fill-warning" : "text-muted-foreground/30"
+                                  )} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="bg-background/50 rounded-lg p-3">
+                              <p className="text-xs text-muted-foreground mb-1">Permanência</p>
+                              <p className="font-semibold text-foreground">{durationText}</p>
+                              <p className="text-xs text-muted-foreground">{durationMonths} meses</p>
+                            </div>
+                            <div className="bg-background/50 rounded-lg p-3">
+                              <p className="text-xs text-muted-foreground mb-1">Aluguel Mensal</p>
+                              <p className="font-semibold text-foreground">{formatCurrency(rental.monthlyRent)}</p>
+                            </div>
+                            <div className="bg-background/50 rounded-lg p-3">
+                              <p className="text-xs text-muted-foreground mb-1">Receita Total</p>
+                              <p className="font-semibold text-primary">{formatCurrency(totalRevenue)}</p>
+                            </div>
+                            <div className="bg-background/50 rounded-lg p-3">
+                              <p className="text-xs text-muted-foreground mb-1">Lucro Líquido</p>
+                              <p className={cn(
+                                "font-semibold",
+                                netProfit >= 0 ? "text-success" : "text-destructive"
+                              )}>
+                                {formatCurrency(netProfit)}
+                              </p>
+                              <p className={cn(
+                                "text-xs",
+                                netProfit >= 0 ? "text-success/70" : "text-destructive/70"
+                              )}>
+                                {profitMargin.toFixed(1)}% margem
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Summary */}
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Total Inquilinos</p>
+                          <p className="text-2xl font-bold text-foreground">{rentalHistoryState.length}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Receita Acumulada</p>
+                          <p className="text-2xl font-bold text-primary">
+                            {formatCurrency(
+                              rentalHistoryState.reduce((acc, rental) => {
+                                const startDate = new Date(rental.startDate);
+                                const endDate = rental.endDate ? new Date(rental.endDate) : new Date();
+                                const months = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                                return acc + (months * rental.monthlyRent);
+                              }, 0)
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-center col-span-2 sm:col-span-1">
+                          <p className="text-sm text-muted-foreground">Lucro Acumulado</p>
+                          <p className="text-2xl font-bold text-success">
+                            {formatCurrency(
+                              rentalHistoryState.reduce((acc, rental) => {
+                                const startDate = new Date(rental.startDate);
+                                const endDate = rental.endDate ? new Date(rental.endDate) : new Date();
+                                const months = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                                const revenue = months * rental.monthlyRent;
+                                const costs = months * (currentProperty.iptu + currentProperty.condoFee + rental.monthlyRent * 0.05);
+                                return acc + (revenue - costs);
+                              }, 0)
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+                    <p className="text-muted-foreground">Nenhum histórico de inquilino registrado</p>
+                  </div>
+                )}
               </div>
 
               {/* DRE */}
