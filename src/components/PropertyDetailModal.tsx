@@ -718,9 +718,25 @@ export function PropertyDetailModal({
                             const widthPercent = ((end.getTime() - start.getTime()) / (timelineEnd.getTime() - timelineStart.getTime())) * 100;
                             
                             const durationMonths = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                            const years = Math.floor(durationMonths / 12);
+                            const months = durationMonths % 12;
+                            const durationText = years > 0 
+                              ? `${years} ano${years > 1 ? 's' : ''}${months > 0 ? ` e ${months} mês${months > 1 ? 'es' : ''}` : ''}`
+                              : `${months} mês${months > 1 ? 'es' : ''}`;
+                            
+                            // Calculate financial data
+                            const totalRevenue = durationMonths * rental.monthlyRent;
+                            const totalCosts = durationMonths * (currentProperty.iptu + currentProperty.condoFee + rental.monthlyRent * 0.05);
+                            const netProfit = totalRevenue - totalCosts;
+                            
+                            // Payment stats
+                            const latePayments = rental.paymentHistory.filter(p => p.status === 'late').length;
+                            const pendingPayments = rental.paymentHistory.filter(p => p.status === 'pending').length;
+                            const paidPayments = rental.paymentHistory.filter(p => p.status === 'paid').length;
+                            const hasPaymentIssues = latePayments > 0 || pendingPayments > 0;
                             
                             return (
-                              <Tooltip key={rental.id}>
+                              <Tooltip key={rental.id} delayDuration={200}>
                                 <TooltipTrigger asChild>
                                   <div
                                     className={cn(
@@ -740,18 +756,136 @@ export function PropertyDetailModal({
                                     )}
                                   </div>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <div className="space-y-1">
-                                    <p className="font-semibold">{tenant?.name || 'Inquilino Removido'}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {start.toLocaleDateString('pt-BR')} - {rental.endDate ? end.toLocaleDateString('pt-BR') : 'Atual'}
-                                    </p>
-                                    <p className="text-xs">
-                                      Duração: {durationMonths} {durationMonths === 1 ? 'mês' : 'meses'}
-                                    </p>
-                                    <p className="text-xs">
-                                      Aluguel: {formatCurrency(rental.monthlyRent)}/mês
-                                    </p>
+                                <TooltipContent className="max-w-sm p-0" side="top">
+                                  <div className="bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+                                    {/* Header */}
+                                    <div className={cn(
+                                      "px-4 py-3 text-primary-foreground",
+                                      tenantColors[index % tenantColors.length]
+                                    )}>
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                          <p className="font-semibold">{tenant?.name || 'Inquilino Removido'}</p>
+                                          <p className="text-xs opacity-90">
+                                            {tenant?.documentType?.toUpperCase()}: {tenant?.document}
+                                          </p>
+                                        </div>
+                                        {!rental.endDate && (
+                                          <Badge className="bg-white/20 text-white text-xs">Ativo</Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Content */}
+                                    <div className="p-4 space-y-3">
+                                      {/* Rating */}
+                                      {tenant && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">Avaliação:</span>
+                                          <div className="flex items-center gap-0.5">
+                                            {[...Array(5)].map((_, i) => (
+                                              <Star 
+                                                key={i} 
+                                                className={cn(
+                                                  "w-3.5 h-3.5",
+                                                  i < tenant.rating ? "text-warning fill-warning" : "text-muted-foreground/30"
+                                                )} 
+                                              />
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Period */}
+                                      <div className="grid grid-cols-2 gap-3 text-xs">
+                                        <div>
+                                          <p className="text-muted-foreground">Período</p>
+                                          <p className="font-medium text-foreground">
+                                            {start.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })} - {rental.endDate ? end.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : 'Atual'}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-muted-foreground">Duração</p>
+                                          <p className="font-medium text-foreground">{durationText}</p>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Financial */}
+                                      <div className="grid grid-cols-2 gap-3 text-xs">
+                                        <div>
+                                          <p className="text-muted-foreground">Aluguel Mensal</p>
+                                          <p className="font-medium text-foreground">{formatCurrency(rental.monthlyRent)}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-muted-foreground">Receita Total</p>
+                                          <p className="font-medium text-primary">{formatCurrency(totalRevenue)}</p>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="grid grid-cols-2 gap-3 text-xs">
+                                        <div>
+                                          <p className="text-muted-foreground">Lucro Líquido</p>
+                                          <p className={cn("font-medium", netProfit >= 0 ? "text-success" : "text-destructive")}>
+                                            {formatCurrency(netProfit)}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-muted-foreground">Seguro</p>
+                                          <p className={cn("font-medium", tenant?.hasInsurance ? "text-success" : "text-warning")}>
+                                            {tenant?.hasInsurance ? 'Sim' : 'Não'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Payment Status */}
+                                      {(rental.paymentHistory.length > 0 || hasPaymentIssues) && (
+                                        <div className={cn(
+                                          "p-2 rounded text-xs",
+                                          latePayments > 0 
+                                            ? "bg-destructive/10 border border-destructive/30" 
+                                            : pendingPayments > 0 
+                                              ? "bg-warning/10 border border-warning/30"
+                                              : "bg-success/10 border border-success/30"
+                                        )}>
+                                          <div className="flex items-center gap-2 mb-1">
+                                            {latePayments > 0 ? (
+                                              <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+                                            ) : pendingPayments > 0 ? (
+                                              <Clock className="w-3.5 h-3.5 text-warning" />
+                                            ) : (
+                                              <Check className="w-3.5 h-3.5 text-success" />
+                                            )}
+                                            <span className={cn(
+                                              "font-medium",
+                                              latePayments > 0 ? "text-destructive" : pendingPayments > 0 ? "text-warning" : "text-success"
+                                            )}>
+                                              {latePayments > 0 ? "Inadimplência" : pendingPayments > 0 ? "Pendências" : "Em dia"}
+                                            </span>
+                                          </div>
+                                          <div className="flex gap-3 text-muted-foreground">
+                                            <span>Pagos: <strong className="text-foreground">{paidPayments}</strong></span>
+                                            <span>Atrasados: <strong className={latePayments > 0 ? "text-destructive" : "text-foreground"}>{latePayments}</strong></span>
+                                            <span>Pendentes: <strong className={pendingPayments > 0 ? "text-warning" : "text-foreground"}>{pendingPayments}</strong></span>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Contact */}
+                                      {tenant && (
+                                        <div className="pt-2 border-t border-border text-xs">
+                                          <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                                              <span>📧</span>
+                                              <span className="truncate max-w-[120px]">{tenant.email}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                                              <span>📱</span>
+                                              <span>{tenant.phone}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </TooltipContent>
                               </Tooltip>
