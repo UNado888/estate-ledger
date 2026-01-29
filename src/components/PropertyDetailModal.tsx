@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star } from 'lucide-react';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star, History } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -622,6 +623,191 @@ export function PropertyDetailModal({
                   </div>
                 )}
               </div>
+
+              {/* Occupancy Timeline */}
+              {rentalHistoryState.length > 0 && (() => {
+                // Calculate timeline data
+                const sortedRentals = [...rentalHistoryState].sort(
+                  (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+                );
+                
+                const timelineStart = new Date(Math.min(
+                  ...sortedRentals.map(r => new Date(r.startDate).getTime()),
+                  new Date(currentProperty.acquisitionDate).getTime()
+                ));
+                const timelineEnd = new Date();
+                const totalDays = Math.max(1, (timelineEnd.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24));
+                
+                // Generate year markers
+                const years: number[] = [];
+                for (let y = timelineStart.getFullYear(); y <= timelineEnd.getFullYear(); y++) {
+                  years.push(y);
+                }
+                
+                // Calculate occupancy stats
+                const occupiedDays = sortedRentals.reduce((acc, rental) => {
+                  const start = new Date(rental.startDate);
+                  const end = rental.endDate ? new Date(rental.endDate) : new Date();
+                  return acc + (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+                }, 0);
+                const occupancyRate = (occupiedDays / totalDays) * 100;
+                
+                // Color palette for different tenants
+                const tenantColors = [
+                  'bg-primary',
+                  'bg-chart-2',
+                  'bg-chart-3',
+                  'bg-chart-4',
+                  'bg-chart-5',
+                ];
+                
+                return (
+                  <div className="bg-secondary/30 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <History className="w-5 h-5 text-primary" />
+                        <h3 className="font-semibold text-foreground">Timeline de Ocupação</h3>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Taxa de ocupação:</span>
+                          <span className={cn(
+                            "font-bold",
+                            occupancyRate >= 80 ? "text-success" : occupancyRate >= 50 ? "text-warning" : "text-destructive"
+                          )}>
+                            {occupancyRate.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Timeline Bar */}
+                    <div className="relative">
+                      {/* Year markers */}
+                      <div className="flex justify-between text-xs text-muted-foreground mb-2 px-1">
+                        {years.map(year => {
+                          const yearStart = new Date(year, 0, 1);
+                          const position = Math.max(0, Math.min(100, 
+                            ((yearStart.getTime() - timelineStart.getTime()) / (timelineEnd.getTime() - timelineStart.getTime())) * 100
+                          ));
+                          return (
+                            <span 
+                              key={year} 
+                              className="absolute transform -translate-x-1/2"
+                              style={{ left: `${position}%` }}
+                            >
+                              {year}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Timeline track */}
+                      <div className="relative h-12 bg-muted/50 rounded-lg mt-6 overflow-hidden">
+                        {/* Vacant periods shown as background */}
+                        <div className="absolute inset-0 bg-muted/30" />
+                        
+                        {/* Rental periods */}
+                        <TooltipProvider>
+                          {sortedRentals.map((rental, index) => {
+                            const tenant = allTenants.find(t => t.id === rental.tenantId);
+                            const start = new Date(rental.startDate);
+                            const end = rental.endDate ? new Date(rental.endDate) : new Date();
+                            
+                            const leftPercent = ((start.getTime() - timelineStart.getTime()) / (timelineEnd.getTime() - timelineStart.getTime())) * 100;
+                            const widthPercent = ((end.getTime() - start.getTime()) / (timelineEnd.getTime() - timelineStart.getTime())) * 100;
+                            
+                            const durationMonths = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                            
+                            return (
+                              <Tooltip key={rental.id}>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className={cn(
+                                      "absolute top-1 bottom-1 rounded cursor-pointer transition-all hover:opacity-80 hover:ring-2 hover:ring-primary/50",
+                                      tenantColors[index % tenantColors.length],
+                                      !rental.endDate && "animate-pulse"
+                                    )}
+                                    style={{
+                                      left: `${Math.max(0, leftPercent)}%`,
+                                      width: `${Math.min(100 - leftPercent, widthPercent)}%`,
+                                    }}
+                                  >
+                                    {widthPercent > 15 && (
+                                      <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-primary-foreground truncate px-2">
+                                        {tenant?.name?.split(' ')[0] || 'Inquilino'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <p className="font-semibold">{tenant?.name || 'Inquilino Removido'}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {start.toLocaleDateString('pt-BR')} - {rental.endDate ? end.toLocaleDateString('pt-BR') : 'Atual'}
+                                    </p>
+                                    <p className="text-xs">
+                                      Duração: {durationMonths} {durationMonths === 1 ? 'mês' : 'meses'}
+                                    </p>
+                                    <p className="text-xs">
+                                      Aluguel: {formatCurrency(rental.monthlyRent)}/mês
+                                    </p>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+                        </TooltipProvider>
+                      </div>
+                      
+                      {/* Legend */}
+                      <div className="flex flex-wrap gap-3 mt-4">
+                        {sortedRentals.map((rental, index) => {
+                          const tenant = allTenants.find(t => t.id === rental.tenantId);
+                          return (
+                            <div key={rental.id} className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-3 h-3 rounded",
+                                tenantColors[index % tenantColors.length]
+                              )} />
+                              <span className="text-xs text-muted-foreground">
+                                {tenant?.name?.split(' ').slice(0, 2).join(' ') || 'Inquilino'}
+                                {!rental.endDate && ' (Atual)'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded bg-muted/50 border border-border" />
+                          <span className="text-xs text-muted-foreground">Vago</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Tempo Total</p>
+                        <p className="font-semibold text-foreground">
+                          {Math.round(totalDays / 365)} anos
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Dias Ocupados</p>
+                        <p className="font-semibold text-success">
+                          {Math.round(occupiedDays)} dias
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Dias Vagos</p>
+                        <p className="font-semibold text-warning">
+                          {Math.round(totalDays - occupiedDays)} dias
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* DRE */}
               <div className="bg-secondary/30 rounded-xl p-5">
