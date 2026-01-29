@@ -466,6 +466,83 @@ export function PropertyDetailModal({
                             </div>
                           </div>
                           
+                          {/* Delinquency Indicator */}
+                          {(() => {
+                            const latePayments = rental.paymentHistory.filter(p => p.status === 'late').length;
+                            const pendingPayments = rental.paymentHistory.filter(p => p.status === 'pending').length;
+                            const paidPayments = rental.paymentHistory.filter(p => p.status === 'paid').length;
+                            const totalPayments = rental.paymentHistory.length;
+                            const delinquencyRate = totalPayments > 0 ? ((latePayments + pendingPayments) / totalPayments) * 100 : 0;
+                            const hasIssues = latePayments > 0 || pendingPayments > 0;
+                            
+                            return hasIssues || totalPayments > 0 ? (
+                              <div className={cn(
+                                "mb-3 p-3 rounded-lg border",
+                                latePayments > 0 
+                                  ? "bg-destructive/5 border-destructive/30" 
+                                  : pendingPayments > 0 
+                                    ? "bg-warning/5 border-warning/30"
+                                    : "bg-success/5 border-success/30"
+                              )}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  {latePayments > 0 ? (
+                                    <AlertTriangle className="w-4 h-4 text-destructive" />
+                                  ) : pendingPayments > 0 ? (
+                                    <Clock className="w-4 h-4 text-warning" />
+                                  ) : (
+                                    <Check className="w-4 h-4 text-success" />
+                                  )}
+                                  <span className={cn(
+                                    "text-sm font-medium",
+                                    latePayments > 0 
+                                      ? "text-destructive" 
+                                      : pendingPayments > 0 
+                                        ? "text-warning"
+                                        : "text-success"
+                                  )}>
+                                    {latePayments > 0 
+                                      ? "Inadimplência Detectada" 
+                                      : pendingPayments > 0 
+                                        ? "Pagamentos Pendentes"
+                                        : "Pagamentos em Dia"}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-3 text-xs">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-destructive" />
+                                    <span className="text-muted-foreground">Atrasados:</span>
+                                    <span className={cn("font-medium", latePayments > 0 ? "text-destructive" : "text-foreground")}>{latePayments}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-warning" />
+                                    <span className="text-muted-foreground">Pendentes:</span>
+                                    <span className={cn("font-medium", pendingPayments > 0 ? "text-warning" : "text-foreground")}>{pendingPayments}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-success" />
+                                    <span className="text-muted-foreground">Pagos:</span>
+                                    <span className="font-medium text-foreground">{paidPayments}</span>
+                                  </div>
+                                  {totalPayments > 0 && (
+                                    <div className="flex items-center gap-1.5 ml-auto">
+                                      <span className="text-muted-foreground">Taxa inadimplência:</span>
+                                      <span className={cn(
+                                        "font-medium",
+                                        delinquencyRate > 20 
+                                          ? "text-destructive" 
+                                          : delinquencyRate > 0 
+                                            ? "text-warning"
+                                            : "text-success"
+                                      )}>
+                                        {delinquencyRate.toFixed(1)}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div className="bg-background/50 rounded-lg p-3">
                               <p className="text-xs text-muted-foreground mb-1">Permanência</p>
