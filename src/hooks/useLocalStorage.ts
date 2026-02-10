@@ -1,4 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
+import { MOCK_DATA_VERSION } from '@/data/mockData';
+
+// Clear stale localStorage on version change
+const VERSION_KEY = 'imobiliaria-data-version';
+const storedVersion = window.localStorage.getItem(VERSION_KEY);
+if (storedVersion !== String(MOCK_DATA_VERSION)) {
+  // Remove all app data keys to force fresh mock data
+  const keysToRemove = Object.keys(window.localStorage).filter(k => k.startsWith('imobiliaria-'));
+  keysToRemove.forEach(k => window.localStorage.removeItem(k));
+  window.localStorage.setItem(VERSION_KEY, String(MOCK_DATA_VERSION));
+}
 
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
   // Get stored value or use initial value
