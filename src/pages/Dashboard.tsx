@@ -74,7 +74,8 @@ export default function Dashboard() {
     { name: 'Apartamentos', value: mockProperties.filter(p => p.type === 'apartment').length, color: 'hsl(221, 83%, 53%)' },
     { name: 'Casas', value: mockProperties.filter(p => p.type === 'house').length, color: 'hsl(142, 71%, 45%)' },
     { name: 'Comercial', value: mockProperties.filter(p => p.type === 'commercial').length, color: 'hsl(38, 92%, 50%)' },
-  ];
+    { name: 'Kitnets', value: mockProperties.filter(p => p.type === 'kitnet').length, color: 'hsl(280, 65%, 60%)' },
+  ].filter(d => d.value > 0);
 
   // ROI comparison
   const roiComparison = mockProperties.map(p => ({
