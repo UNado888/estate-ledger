@@ -33,7 +33,7 @@ export function usePaymentAlerts({ properties, rentalHistory, utilityPayments = 
         const daysUntilDue = differenceInDays(dueDate, today);
         
         // Late payment alert (past due and not paid)
-        if (payment.status === 'late' || (payment.status === 'pending' && isBefore(dueDate, today))) {
+        if ((payment.status === 'late' && !payment.paidDate) || (payment.status === 'pending' && isBefore(dueDate, today))) {
           const daysLate = Math.abs(daysUntilDue);
           generatedAlerts.push({
             id: `late-${payment.id}`,
