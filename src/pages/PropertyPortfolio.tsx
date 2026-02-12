@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Search, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PropertyCard } from '@/components/PropertyCard';
-import { mockProperties as initialProperties, mockTenants as initialTenants } from '@/data/mockData';
-import { Property, Tenant } from '@/types';
+import { mockProperties as initialProperties, mockTenants as initialTenants, mockRentalHistory } from '@/data/mockData';
+import { Property, Tenant, UtilityPaymentRecord } from '@/types';
+import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 export default function PropertyPortfolio() {
   const [properties, setProperties] = useLocalStorage<Property[]>('imobiliaria-properties', initialProperties);
   const [tenants] = useLocalStorage<Tenant[]>('imobiliaria-tenants', initialTenants);
+  const [utilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -37,6 +39,18 @@ export default function PropertyPortfolio() {
     const matchesType = typeFilter === 'all' || property.type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
   });
+
+  // Generate alerts and count per property
+  const alerts = usePaymentAlerts({ properties, rentalHistory: mockRentalHistory, utilityPayments });
+  const alertsByProperty = useMemo(() => {
+    const map: Record<string, number> = {};
+    alerts.forEach(a => {
+      if (a.propertyId) {
+        map[a.propertyId] = (map[a.propertyId] || 0) + 1;
+      }
+    });
+    return map;
+  }, [alerts]);
 
   // Calculate summary stats
   const totalValue = filteredProperties.reduce((sum, p) => sum + p.currentMarketValue, 0);
@@ -162,7 +176,8 @@ export default function PropertyPortfolio() {
         {filteredProperties.map((property) => (
           <PropertyCard 
             key={property.id} 
-            property={property} 
+            property={property}
+            alertCount={alertsByProperty[property.id] || 0}
             onClick={() => setSelectedProperty(property)}
           />
         ))}
