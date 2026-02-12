@@ -1,7 +1,7 @@
-import { Property, Tenant, Alert, FinancialRecord, RentalHistory, Furniture } from '@/types';
+import { Property, Tenant, Alert, FinancialRecord, RentalHistory, Furniture, PaymentRecord } from '@/types';
 
 // Increment this version whenever mock data changes to invalidate localStorage cache
-export const MOCK_DATA_VERSION = 2;
+export const MOCK_DATA_VERSION = 3;
 export const mockProperties: Property[] = [
   {
     id: '1',
@@ -373,6 +373,57 @@ export const generateFinancialHistory = (): FinancialRecord[] => {
 
 export const mockFinancialHistory = generateFinancialHistory();
 
+// Generate payment records for a rental period
+const generatePayments = (
+  startDate: string,
+  endDate: string | undefined,
+  monthlyRent: number,
+  lateChance = 0.1,
+  pendingRecentMonths = 0
+): PaymentRecord[] => {
+  const payments: PaymentRecord[] = [];
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : new Date();
+  let id = 1;
+
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (cur <= end) {
+    const year = cur.getFullYear();
+    const month = cur.getMonth() + 1;
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const dueDate = `${year}-${String(month).padStart(2, '0')}-05`;
+
+    const monthsFromEnd = (end.getFullYear() - year) * 12 + (end.getMonth() + 1 - month);
+    let status: 'paid' | 'late' | 'pending';
+    let paidDate: string | undefined;
+
+    if (!endDate && monthsFromEnd < pendingRecentMonths) {
+      status = 'pending';
+    } else if (Math.random() < lateChance) {
+      status = 'late';
+      const lateDay = 15 + Math.floor(Math.random() * 15);
+      paidDate = `${year}-${String(month).padStart(2, '0')}-${String(Math.min(lateDay, 28)).padStart(2, '0')}`;
+    } else {
+      status = 'paid';
+      const payDay = 1 + Math.floor(Math.random() * 5);
+      paidDate = `${year}-${String(month).padStart(2, '0')}-${String(payDay).padStart(2, '0')}`;
+    }
+
+    const variation = 0.98 + Math.random() * 0.04;
+    payments.push({
+      id: String(id++),
+      month: monthStr,
+      dueDate,
+      paidDate,
+      amount: Math.round(monthlyRent * variation),
+      status,
+    });
+
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return payments;
+};
+
 export const mockRentalHistory: RentalHistory[] = [
   {
     id: '1',
@@ -380,7 +431,7 @@ export const mockRentalHistory: RentalHistory[] = [
     tenantId: '1',
     startDate: '2022-03-01',
     monthlyRent: 5500,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2022-03-01', undefined, 5500, 0.05, 1),
   },
   {
     id: '2',
@@ -389,7 +440,7 @@ export const mockRentalHistory: RentalHistory[] = [
     startDate: '2019-06-01',
     endDate: '2022-02-28',
     monthlyRent: 4800,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2019-06-01', '2022-02-28', 4800, 0.15),
   },
   {
     id: '3',
@@ -397,7 +448,7 @@ export const mockRentalHistory: RentalHistory[] = [
     tenantId: '2',
     startDate: '2020-01-01',
     monthlyRent: 15000,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2020-01-01', undefined, 15000, 0.03, 0),
   },
   {
     id: '4',
@@ -405,7 +456,7 @@ export const mockRentalHistory: RentalHistory[] = [
     tenantId: '6',
     startDate: '2023-07-01',
     monthlyRent: 4200,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2023-07-01', undefined, 4200, 0.08, 1),
   },
   {
     id: '5',
@@ -414,7 +465,7 @@ export const mockRentalHistory: RentalHistory[] = [
     startDate: '2021-01-01',
     endDate: '2023-06-30',
     monthlyRent: 3800,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2021-01-01', '2023-06-30', 3800, 0.2),
   },
   {
     id: '6',
@@ -422,7 +473,7 @@ export const mockRentalHistory: RentalHistory[] = [
     tenantId: '3',
     startDate: '2021-06-01',
     monthlyRent: 28000,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2021-06-01', undefined, 28000, 0.12, 2),
   },
   {
     id: '7',
@@ -430,7 +481,7 @@ export const mockRentalHistory: RentalHistory[] = [
     tenantId: '7',
     startDate: '2022-05-01',
     monthlyRent: 1800,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2022-05-01', undefined, 1800, 0.18, 1),
   },
   {
     id: '8',
@@ -438,7 +489,7 @@ export const mockRentalHistory: RentalHistory[] = [
     tenantId: '8',
     startDate: '2019-10-01',
     monthlyRent: 9500,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2019-10-01', undefined, 9500, 0.02, 0),
   },
   {
     id: '9',
@@ -446,7 +497,7 @@ export const mockRentalHistory: RentalHistory[] = [
     tenantId: '9',
     startDate: '2023-01-15',
     monthlyRent: 8000,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2023-01-15', undefined, 8000, 0.07, 1),
   },
   {
     id: '10',
@@ -455,7 +506,7 @@ export const mockRentalHistory: RentalHistory[] = [
     startDate: '2017-09-15',
     endDate: '2019-09-30',
     monthlyRent: 7500,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2017-09-15', '2019-09-30', 7500, 0.1),
   },
   {
     id: '11',
@@ -464,7 +515,7 @@ export const mockRentalHistory: RentalHistory[] = [
     startDate: '2017-01-01',
     endDate: '2021-05-31',
     monthlyRent: 22000,
-    paymentHistory: [],
+    paymentHistory: generatePayments('2017-01-01', '2021-05-31', 22000, 0.25),
   },
 ];
 
