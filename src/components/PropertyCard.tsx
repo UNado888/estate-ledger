@@ -58,24 +58,28 @@ export function PropertyCard({ property, alerts = [], onClick }: PropertyCardPro
           {status.label}
         </Badge>
         {alertCount > 0 && (
-          <Tooltip>
+          <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>
-              <div className="absolute top-3 left-3 flex items-center gap-1 bg-destructive text-destructive-foreground rounded-full px-2 py-0.5 text-xs font-medium animate-pulse">
+              <div 
+                className="absolute top-3 left-3 flex items-center gap-1 bg-destructive text-destructive-foreground rounded-full px-2 py-0.5 text-xs font-medium animate-pulse cursor-help z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <AlertTriangle className="w-3 h-3" />
                 {alertCount}
               </div>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs">
-              <div className="space-y-1">
-                <p className="font-semibold">{alertCount} alerta{alertCount > 1 ? 's' : ''} pendente{alertCount > 1 ? 's' : ''}</p>
+            <TooltipContent side="bottom" align="start" className="max-w-xs z-[60]" sideOffset={8}>
+              <div className="space-y-1 p-0.5">
+                <p className="font-semibold text-sm">{alertCount} alerta{alertCount > 1 ? 's' : ''} pendente{alertCount > 1 ? 's' : ''}</p>
                 {alerts.slice(0, 3).map((alert) => (
-                  <p key={alert.id} className="text-xs text-muted-foreground">
-                    • {alert.title}: {alert.message.length > 80 ? alert.message.slice(0, 80) + '…' : alert.message}
+                  <p key={alert.id} className="text-xs text-popover-foreground/80">
+                    • {alert.title}
                   </p>
                 ))}
                 {alertCount > 3 && (
-                  <p className="text-xs text-muted-foreground italic">e mais {alertCount - 3}...</p>
+                  <p className="text-xs text-popover-foreground/60 italic">e mais {alertCount - 3}...</p>
                 )}
+                <p className="text-xs text-popover-foreground/50 mt-1">Clique para ver detalhes</p>
               </div>
             </TooltipContent>
           </Tooltip>
