@@ -1,12 +1,12 @@
-import { Property } from '@/types';
+import { Property, Alert } from '@/types';
 import { cn } from '@/lib/utils';
 import { MapPin, Bed, Bath, Car, TrendingUp, Building2, Home, Store, Mountain, Warehouse, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PropertyCardProps {
   property: Property;
-  alertCount?: number;
+  alerts?: Alert[];
   onClick?: () => void;
 }
 
@@ -25,7 +25,8 @@ const typeIcons: Record<Property['type'], React.ComponentType<{ className?: stri
   kitnet: Warehouse,
 };
 
-export function PropertyCard({ property, alertCount = 0, onClick }: PropertyCardProps) {
+export function PropertyCard({ property, alerts = [], onClick }: PropertyCardProps) {
+  const alertCount = alerts.length;
   const status = statusConfig[property.status];
   const TypeIcon = typeIcons[property.type];
   
@@ -57,19 +58,27 @@ export function PropertyCard({ property, alertCount = 0, onClick }: PropertyCard
           {status.label}
         </Badge>
         {alertCount > 0 && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="absolute top-3 left-3 flex items-center gap-1 bg-destructive text-destructive-foreground rounded-full px-2 py-0.5 text-xs font-medium animate-pulse">
-                  <AlertTriangle className="w-3 h-3" />
-                  {alertCount}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{alertCount} alerta{alertCount > 1 ? 's' : ''} pendente{alertCount > 1 ? 's' : ''}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="absolute top-3 left-3 flex items-center gap-1 bg-destructive text-destructive-foreground rounded-full px-2 py-0.5 text-xs font-medium animate-pulse">
+                <AlertTriangle className="w-3 h-3" />
+                {alertCount}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <div className="space-y-1">
+                <p className="font-semibold">{alertCount} alerta{alertCount > 1 ? 's' : ''} pendente{alertCount > 1 ? 's' : ''}</p>
+                {alerts.slice(0, 3).map((alert) => (
+                  <p key={alert.id} className="text-xs text-muted-foreground">
+                    • {alert.title}: {alert.message.length > 80 ? alert.message.slice(0, 80) + '…' : alert.message}
+                  </p>
+                ))}
+                {alertCount > 3 && (
+                  <p className="text-xs text-muted-foreground italic">e mais {alertCount - 3}...</p>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
 

@@ -40,17 +40,20 @@ export default function PropertyPortfolio() {
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  // Generate alerts and count per property
-  const alerts = usePaymentAlerts({ properties, rentalHistory: mockRentalHistory, utilityPayments });
+  // Generate alerts and group per property (exclude vacancy alerts - already shown by status badge)
+  const allAlerts = usePaymentAlerts({ properties, rentalHistory: mockRentalHistory, utilityPayments });
   const alertsByProperty = useMemo(() => {
-    const map: Record<string, number> = {};
-    alerts.forEach(a => {
-      if (a.propertyId) {
-        map[a.propertyId] = (map[a.propertyId] || 0) + 1;
-      }
-    });
+    const map: Record<string, typeof allAlerts> = {};
+    allAlerts
+      .filter(a => a.type !== 'vacancy')
+      .forEach(a => {
+        if (a.propertyId) {
+          if (!map[a.propertyId]) map[a.propertyId] = [];
+          map[a.propertyId].push(a);
+        }
+      });
     return map;
-  }, [alerts]);
+  }, [allAlerts]);
 
   // Calculate summary stats
   const totalValue = filteredProperties.reduce((sum, p) => sum + p.currentMarketValue, 0);
@@ -177,7 +180,7 @@ export default function PropertyPortfolio() {
           <PropertyCard 
             key={property.id} 
             property={property}
-            alertCount={alertsByProperty[property.id] || 0}
+            alerts={alertsByProperty[property.id] || []}
             onClick={() => setSelectedProperty(property)}
           />
         ))}
