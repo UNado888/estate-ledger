@@ -28,7 +28,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { AssignTenantModal } from './AssignTenantModal';
-import { RegisterPaymentModal } from './RegisterPaymentModal';
 import { toast } from 'sonner';
 
 interface PropertyDetailModalProps {
@@ -71,11 +70,11 @@ export function PropertyDetailModal({
   const [currentProperty, setCurrentProperty] = useState(property);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [showAssignTenant, setShowAssignTenant] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  // showPaymentModal removed - payments now use inline pay button
   const [rentalHistoryState, setRentalHistoryState] = useState<RentalHistory[]>(
     mockRentalHistory.filter(r => r.propertyId === property.id)
   );
-  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+  // paymentHistory state removed - now uses rentalHistoryState directly
   const [allUtilityPayments, setAllUtilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   
   // Filter utility payments for this property
@@ -190,9 +189,7 @@ export function PropertyDetailModal({
     toast.success('Inquilino removido do imóvel');
   };
 
-  const handleRegisterPayment = (payment: PaymentRecord) => {
-    setPaymentHistory(prev => [payment, ...prev]);
-  };
+  // handleRegisterPayment removed - payments now use inline pay button
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1054,54 +1051,141 @@ export function PropertyDetailModal({
             </TabsContent>
 
             <TabsContent value="payments" className="space-y-6">
-              {/* Register Payment Button */}
-              <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-foreground">Histórico de Pagamentos</h3>
-                <Button onClick={() => setShowPaymentModal(true)} className="gap-2">
-                  <CreditCard className="w-4 h-4" />
-                  Registrar Pagamento
-                </Button>
-              </div>
+              {(() => {
+                const activeRental = rentalHistoryState.find(r => !r.endDate && r.propertyId === currentProperty.id);
+                if (!activeRental) {
+                  return (
+                    <div className="text-center py-12 bg-secondary/30 rounded-xl">
+                      <CreditCard className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                      <p className="text-muted-foreground">Nenhum contrato ativo</p>
+                      <p className="text-sm text-muted-foreground mt-1">Vincule um inquilino para gerenciar pagamentos</p>
+                    </div>
+                  );
+                }
 
-              {/* Payment History */}
-              {paymentHistory.length > 0 ? (
-                <div className="bg-secondary/30 rounded-xl p-5">
-                  <div className="space-y-3">
-                    {paymentHistory.map((payment) => {
-                      const statusInfo = paymentStatusConfig[payment.status];
-                      const StatusIcon = statusInfo.icon;
-                      return (
-                        <div key={payment.id} className="flex justify-between items-center py-3 border-b border-border last:border-0">
-                          <div className="flex items-center gap-3">
-                            <StatusIcon className={cn("w-5 h-5", statusInfo.className)} />
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {new Date(payment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Venc: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
-                                {payment.paidDate && ` • Pago: ${new Date(payment.paidDate).toLocaleDateString('pt-BR')}`}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-foreground">{formatCurrency(payment.amount)}</p>
-                            <Badge className={cn("text-xs", statusInfo.className, "bg-transparent")}>
-                              {statusInfo.label}
-                            </Badge>
-                          </div>
+                const tenant = allTenants.find(t => t.id === activeRental.tenantId);
+                const payments = [...activeRental.paymentHistory].sort((a, b) => b.month.localeCompare(a.month));
+                const paidCount = payments.filter(p => p.status === 'paid').length;
+                const lateCount = payments.filter(p => p.status === 'late').length;
+                const pendingCount = payments.filter(p => p.status === 'pending').length;
+
+                const handleMarkAsPaid = (paymentId: string) => {
+                  setRentalHistoryState(prev =>
+                    prev.map(r => {
+                      if (r.id !== activeRental.id) return r;
+                      return {
+                        ...r,
+                        paymentHistory: r.paymentHistory.map(p =>
+                          p.id === paymentId
+                            ? { ...p, status: 'paid' as const, paidDate: new Date().toISOString().split('T')[0] }
+                            : p
+                        ),
+                      };
+                    })
+                  );
+                  toast.success('Pagamento registrado como pago!');
+                };
+
+                return (
+                  <>
+                    {/* Contract Summary */}
+                    <div className="bg-secondary/30 rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-foreground">Contrato Ativo</h3>
+                        <Badge className="bg-success/10 text-success">Ativo</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Inquilino</p>
+                          <p className="font-medium text-foreground">{tenant?.name || '—'}</p>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12 bg-secondary/30 rounded-xl">
-                  <CreditCard className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <p className="text-muted-foreground">Nenhum pagamento registrado</p>
-                  <p className="text-sm text-muted-foreground mt-1">Clique em "Registrar Pagamento" para adicionar</p>
-                </div>
-              )}
+                        <div>
+                          <p className="text-muted-foreground">Início</p>
+                          <p className="font-medium text-foreground">{new Date(activeRental.startDate).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Aluguel</p>
+                          <p className="font-medium text-primary">{formatCurrency(activeRental.monthlyRent)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Duração</p>
+                          <p className="font-medium text-foreground">{payments.length} meses</p>
+                        </div>
+                      </div>
+                      {/* Stats bar */}
+                      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-success" />
+                          <span className="text-muted-foreground">Pagos:</span>
+                          <span className="font-semibold text-foreground">{paidCount}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-warning" />
+                          <span className="text-muted-foreground">Pendentes:</span>
+                          <span className="font-semibold text-foreground">{pendingCount}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-destructive" />
+                          <span className="text-muted-foreground">Atrasados:</span>
+                          <span className="font-semibold text-foreground">{lateCount}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment List */}
+                    <div className="bg-secondary/30 rounded-xl p-5">
+                      <h3 className="font-semibold text-foreground mb-4">Pagamentos Mensais</h3>
+                      <div className="space-y-2">
+                        {payments.map((payment) => {
+                          const statusInfo = paymentStatusConfig[payment.status];
+                          const StatusIcon = statusInfo.icon;
+                          const monthLabel = new Date(payment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+                          return (
+                            <div
+                              key={payment.id}
+                              className={cn(
+                                "flex items-center justify-between p-3 rounded-lg border",
+                                payment.status === 'paid' && "bg-success/5 border-success/20",
+                                payment.status === 'pending' && "bg-warning/5 border-warning/20",
+                                payment.status === 'late' && "bg-destructive/5 border-destructive/20"
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <StatusIcon className={cn("w-5 h-5", statusInfo.className)} />
+                                <div>
+                                  <p className="font-medium text-foreground capitalize">{monthLabel}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Venc: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+                                    {payment.paidDate && ` • Pago: ${new Date(payment.paidDate).toLocaleDateString('pt-BR')}`}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="font-semibold text-foreground">{formatCurrency(payment.amount)}</span>
+                                {payment.status !== 'paid' ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleMarkAsPaid(payment.id)}
+                                    className="gap-1.5"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                    Pagar
+                                  </Button>
+                                ) : (
+                                  <Badge className="bg-success/10 text-success border-0">
+                                    {statusInfo.label}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="utilities">
@@ -1167,14 +1251,6 @@ export function PropertyDetailModal({
         onAssign={handleAssignTenant}
       />
 
-      {/* Register Payment Modal */}
-      <RegisterPaymentModal
-        open={showPaymentModal}
-        property={currentProperty}
-        tenant={currentTenant}
-        onClose={() => setShowPaymentModal(false)}
-        onRegister={handleRegisterPayment}
-      />
     </div>
   );
 }
