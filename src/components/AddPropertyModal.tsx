@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { UtilitiesConfig, defaultUtilities } from '@/components/UtilitiesConfig';
+import { PropertyImageUpload } from '@/components/PropertyImageUpload';
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,7 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
     iptu: '',
     condoFee: '',
     acquisitionDate: '',
+    imageUrl: undefined as string | undefined,
     utilities: defaultUtilities,
   });
 
@@ -98,6 +100,7 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
       iptu: Number(formData.iptu) || 0,
       condoFee: Number(formData.condoFee) || 0,
       acquisitionDate: formData.acquisitionDate || new Date().toISOString().split('T')[0],
+      imageUrl: formData.imageUrl,
       utilities: formData.utilities,
     };
 
@@ -125,6 +128,7 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
       iptu: '',
       condoFee: '',
       acquisitionDate: '',
+      imageUrl: undefined,
       utilities: defaultUtilities,
     });
   };
@@ -333,6 +337,12 @@ export function AddPropertyModal({ open, onClose, onAdd }: AddPropertyModalProps
               </div>
             </div>
           </div>
+
+          {/* Property Image */}
+          <PropertyImageUpload
+            imageUrl={formData.imageUrl}
+            onChange={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
+          />
 
           {/* Acquisition Date */}
           <div className="space-y-2">

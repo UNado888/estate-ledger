@@ -44,8 +44,12 @@ export function PropertyCard({ property, alerts = [], onClick }: PropertyCardPro
       className="bg-card rounded-xl border border-border overflow-hidden card-hover cursor-pointer group"
     >
       {/* Image/Header */}
-      <div className="h-32 bg-gradient-to-br from-primary/20 to-primary/5 relative flex items-center justify-center">
-        <TypeIcon className="w-12 h-12 text-primary/40" />
+      <div className="h-32 bg-gradient-to-br from-primary/20 to-primary/5 relative flex items-center justify-center overflow-hidden">
+        {property.imageUrl ? (
+          <img src={property.imageUrl} alt={property.name} className="w-full h-full object-cover" />
+        ) : (
+          <TypeIcon className="w-12 h-12 text-primary/40" />
+        )}
         <Badge 
           className={cn(
             "absolute top-3 right-3",
