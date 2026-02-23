@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UtilitiesConfig, defaultUtilities } from '@/components/UtilitiesConfig';
+import { PropertyImageUpload } from '@/components/PropertyImageUpload';
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,7 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
     iptu: '',
     condoFee: '',
     acquisitionDate: '',
+    imageUrl: undefined as string | undefined,
     utilities: defaultUtilities,
   });
 
@@ -87,6 +89,7 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
         iptu: property.iptu.toString(),
         condoFee: property.condoFee.toString(),
         acquisitionDate: property.acquisitionDate,
+        imageUrl: property.imageUrl,
         utilities: property.utilities || defaultUtilities,
       });
     }
@@ -124,6 +127,7 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
       iptu: Number(formData.iptu) || 0,
       condoFee: Number(formData.condoFee) || 0,
       acquisitionDate: formData.acquisitionDate || property.acquisitionDate,
+      imageUrl: formData.imageUrl,
       utilities: formData.utilities,
     };
 
@@ -338,6 +342,12 @@ export function EditPropertyModal({ open, property, onClose, onSave }: EditPrope
               </div>
             </div>
           </div>
+
+          {/* Property Image */}
+          <PropertyImageUpload
+            imageUrl={formData.imageUrl}
+            onChange={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
+          />
 
           {/* Acquisition Date */}
           <div className="space-y-2">
