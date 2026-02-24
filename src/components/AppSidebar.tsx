@@ -15,10 +15,10 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { mockProperties, mockRentalHistory } from '@/data/mockData';
+import { mockProperties as initialProperties, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
 import { NotificationsPanel } from '@/components/NotificationsPanel';
-import { Alert, UtilityPaymentRecord } from '@/types';
+import { Alert, Property, RentalHistory, UtilityPaymentRecord } from '@/types';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 const navItems = [
@@ -34,13 +34,15 @@ export function AppSidebar() {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [dismissedAlerts, setDismissedAlerts] = useLocalStorage<string[]>('imobiliaria-dismissed-alerts', []);
+  const [properties] = useLocalStorage<Property[]>('imobiliaria-properties', initialProperties);
+  const [rentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', initialRentalHistory);
   const [utilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   
   // Generate automatic alerts based on payment status
   const paymentAlerts = usePaymentAlerts({ 
-    properties: mockProperties, 
-    rentalHistory: mockRentalHistory,
+    properties, 
+    rentalHistory,
     utilityPayments
   });
   

@@ -3,8 +3,8 @@ import { Plus, Search, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PropertyCard } from '@/components/PropertyCard';
-import { mockProperties as initialProperties, mockTenants as initialTenants, mockRentalHistory } from '@/data/mockData';
-import { Property, Tenant, UtilityPaymentRecord } from '@/types';
+import { mockProperties as initialProperties, mockTenants as initialTenants, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
+import { Property, Tenant, RentalHistory, UtilityPaymentRecord } from '@/types';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
 import {
   Select,
@@ -22,6 +22,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 export default function PropertyPortfolio() {
   const [properties, setProperties] = useLocalStorage<Property[]>('imobiliaria-properties', initialProperties);
   const [tenants] = useLocalStorage<Tenant[]>('imobiliaria-tenants', initialTenants);
+  const [rentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', initialRentalHistory);
   const [utilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -41,7 +42,7 @@ export default function PropertyPortfolio() {
   });
 
   // Generate alerts and group per property (exclude vacancy alerts - already shown by status badge)
-  const allAlerts = usePaymentAlerts({ properties, rentalHistory: mockRentalHistory, utilityPayments });
+  const allAlerts = usePaymentAlerts({ properties, rentalHistory, utilityPayments });
   const alertsByProperty = useMemo(() => {
     const map: Record<string, typeof allAlerts> = {};
     allAlerts

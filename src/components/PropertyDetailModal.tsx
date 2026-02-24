@@ -71,9 +71,16 @@ export function PropertyDetailModal({
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [showAssignTenant, setShowAssignTenant] = useState(false);
   // showPaymentModal removed - payments now use inline pay button
-  const [rentalHistoryState, setRentalHistoryState] = useState<RentalHistory[]>(
-    mockRentalHistory.filter(r => r.propertyId === property.id)
-  );
+  const [allRentalHistory, setAllRentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', mockRentalHistory);
+  const rentalHistoryState = allRentalHistory.filter(r => r.propertyId === property.id);
+  const setRentalHistoryState = (updater: RentalHistory[] | ((prev: RentalHistory[]) => RentalHistory[])) => {
+    setAllRentalHistory(prev => {
+      const otherHistory = prev.filter(r => r.propertyId !== property.id);
+      const propertyHistory = prev.filter(r => r.propertyId === property.id);
+      const updated = typeof updater === 'function' ? updater(propertyHistory) : updater;
+      return [...otherHistory, ...updated];
+    });
+  };
   // paymentHistory state removed - now uses rentalHistoryState directly
   const [allUtilityPayments, setAllUtilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   
