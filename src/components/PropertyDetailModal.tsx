@@ -59,6 +59,100 @@ const paymentStatusConfig = {
   late: { label: 'Atrasado', icon: AlertTriangle, className: 'text-destructive' },
 };
 
+// Inline editable payment row component
+function PaymentRow({ payment, statusInfo, StatusIcon, monthLabel, formatCurrency, onMarkAsPaid, onChangeAmount }: {
+  payment: PaymentRecord;
+  statusInfo: { label: string; icon: typeof Check; className: string };
+  StatusIcon: typeof Check;
+  monthLabel: string;
+  formatCurrency: (v: number) => string;
+  onMarkAsPaid: (id: string) => void;
+  onChangeAmount: (id: string, amount: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(String(payment.amount));
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between p-3 rounded-lg border",
+        payment.status === 'paid' && "bg-success/5 border-success/20",
+        payment.status === 'pending' && "bg-warning/5 border-warning/20",
+        payment.status === 'late' && "bg-destructive/5 border-destructive/20"
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <StatusIcon className={cn("w-5 h-5", statusInfo.className)} />
+        <div>
+          <p className="font-medium text-foreground capitalize">{monthLabel}</p>
+          <p className="text-xs text-muted-foreground">
+            Venc: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+            {payment.paidDate && ` • Pago: ${new Date(payment.paidDate).toLocaleDateString('pt-BR')}`}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {editing ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">R$</span>
+            <input
+              type="number"
+              value={editValue}
+              onChange={e => setEditValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const val = parseFloat(editValue);
+                  if (val > 0) { onChangeAmount(payment.id, val); setEditing(false); }
+                }
+                if (e.key === 'Escape') setEditing(false);
+              }}
+              autoFocus
+              className="w-24 h-8 px-2 text-sm rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={() => {
+                const val = parseFloat(editValue);
+                if (val > 0) { onChangeAmount(payment.id, val); setEditing(false); }
+              }}
+            >
+              <Check className="w-4 h-4 text-success" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditing(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setEditValue(String(payment.amount)); setEditing(true); }}
+            className="font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1 group"
+            title="Clique para alterar o valor"
+          >
+            {formatCurrency(payment.amount)}
+            <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" />
+          </button>
+        )}
+        {payment.status !== 'paid' ? (
+          <Button
+            size="sm"
+            onClick={() => onMarkAsPaid(payment.id)}
+            className="gap-1.5"
+          >
+            <Check className="w-4 h-4" />
+            Pagar
+          </Button>
+        ) : (
+          <Badge className="bg-success/10 text-success border-0">
+            {statusInfo.label}
+          </Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function PropertyDetailModal({ 
   property, 
   onClose, 
@@ -1093,6 +1187,32 @@ export function PropertyDetailModal({
                   toast.success('Pagamento registrado como pago!');
                 };
 
+                const handleChangeAmount = (paymentId: string, newAmount: number) => {
+                  // Find the target payment's month
+                  const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
+                  if (!targetPayment) return;
+
+                  setRentalHistoryState(prev =>
+                    prev.map(r => {
+                      if (r.id !== activeRental.id) return r;
+                      return {
+                        ...r,
+                        monthlyRent: newAmount,
+                        paymentHistory: r.paymentHistory.map(p =>
+                          p.month >= targetPayment.month
+                            ? { ...p, amount: newAmount }
+                            : p
+                        ),
+                      };
+                    })
+                  );
+                  // Also update property monthlyRent
+                  const updatedProperty = { ...currentProperty, monthlyRent: newAmount };
+                  setCurrentProperty(updatedProperty);
+                  onUpdateProperty?.(updatedProperty);
+                  toast.success(`Valor atualizado para ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
+                };
+
                 return (
                   <>
                     {/* Contract Summary */}
@@ -1149,43 +1269,16 @@ export function PropertyDetailModal({
                           const monthLabel = new Date(payment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
                           return (
-                            <div
+                            <PaymentRow
                               key={payment.id}
-                              className={cn(
-                                "flex items-center justify-between p-3 rounded-lg border",
-                                payment.status === 'paid' && "bg-success/5 border-success/20",
-                                payment.status === 'pending' && "bg-warning/5 border-warning/20",
-                                payment.status === 'late' && "bg-destructive/5 border-destructive/20"
-                              )}
-                            >
-                              <div className="flex items-center gap-3">
-                                <StatusIcon className={cn("w-5 h-5", statusInfo.className)} />
-                                <div>
-                                  <p className="font-medium text-foreground capitalize">{monthLabel}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Venc: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
-                                    {payment.paidDate && ` • Pago: ${new Date(payment.paidDate).toLocaleDateString('pt-BR')}`}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="font-semibold text-foreground">{formatCurrency(payment.amount)}</span>
-                                {payment.status !== 'paid' ? (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleMarkAsPaid(payment.id)}
-                                    className="gap-1.5"
-                                  >
-                                    <Check className="w-4 h-4" />
-                                    Pagar
-                                  </Button>
-                                ) : (
-                                  <Badge className="bg-success/10 text-success border-0">
-                                    {statusInfo.label}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
+                              payment={payment}
+                              statusInfo={statusInfo}
+                              StatusIcon={StatusIcon}
+                              monthLabel={monthLabel}
+                              formatCurrency={formatCurrency}
+                              onMarkAsPaid={handleMarkAsPaid}
+                              onChangeAmount={handleChangeAmount}
+                            />
                           );
                         })}
                       </div>
