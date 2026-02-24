@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from 'react';
-import { mockProperties, mockRentalHistory } from '@/data/mockData';
+import { mockProperties, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Property, RentalHistory } from '@/types';
 import { useReportData } from '@/hooks/useReportData';
@@ -45,12 +45,13 @@ const formatCurrency = (value: number) => {
 
 export default function Reports() {
   const [properties] = useLocalStorage<Property[]>('imobiliaria-properties', mockProperties);
+  const [rentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', initialRentalHistory);
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('12');
 
   const { monthlyData, summaryData, propertyBreakdown, paymentStatusData } = useReportData({
     properties,
-    rentalHistory: mockRentalHistory,
+    rentalHistory,
     selectedProperty,
     selectedPeriod,
   });

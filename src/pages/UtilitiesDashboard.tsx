@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { mockProperties } from '@/data/mockData';
+import { mockProperties as initialProperties } from '@/data/mockData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { UtilityPaymentRecord, UtilityType, Property } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -130,7 +130,7 @@ export default function UtilitiesDashboard() {
   };
   const [budgetHistory, setBudgetHistory] = useLocalStorage<BudgetHistoryRecord[]>('imobiliaria-budget-history', []);
 
-  const properties = mockProperties;
+  const [properties] = useLocalStorage<Property[]>('imobiliaria-properties', initialProperties);
 
   const propertyMap = useMemo(() => {
     const map: Record<string, Property> = {};

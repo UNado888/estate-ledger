@@ -9,8 +9,10 @@ import {
 import { StatCard } from '@/components/StatCard';
 import { PropertyCard } from '@/components/PropertyCard';
 import { AlertItem } from '@/components/AlertItem';
-import { mockProperties, mockTenants, mockFinancialHistory, mockRentalHistory } from '@/data/mockData';
+import { mockProperties as initialProperties, mockTenants as initialTenants, mockFinancialHistory, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { Property, Tenant, RentalHistory, UtilityPaymentRecord } from '@/types';
 import {
   AreaChart, 
   Area, 
@@ -28,27 +30,33 @@ import {
 } from 'recharts';
 
 export default function Dashboard() {
+  const [properties] = useLocalStorage<Property[]>('imobiliaria-properties', initialProperties);
+  const [tenants] = useLocalStorage<Tenant[]>('imobiliaria-tenants', initialTenants);
+  const [rentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', initialRentalHistory);
+  const [utilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
+
   // Calculate metrics
-  const totalProperties = mockProperties.length;
-  const rentedProperties = mockProperties.filter(p => p.status === 'rented').length;
-  const vacantProperties = mockProperties.filter(p => p.status === 'vacant').length;
+  const totalProperties = properties.length;
+  const rentedProperties = properties.filter(p => p.status === 'rented').length;
+  const vacantProperties = properties.filter(p => p.status === 'vacant').length;
   const occupancyRate = ((rentedProperties / totalProperties) * 100).toFixed(1);
   
-  const totalMonthlyRevenue = mockProperties
+  const totalMonthlyRevenue = properties
     .filter(p => p.status === 'rented')
     .reduce((sum, p) => sum + p.monthlyRent, 0);
   
-  const totalPortfolioValue = mockProperties.reduce((sum, p) => sum + p.currentMarketValue, 0);
-  const totalAcquisitionCost = mockProperties.reduce((sum, p) => sum + p.acquisitionCost + p.renovationCost, 0);
+  const totalPortfolioValue = properties.reduce((sum, p) => sum + p.currentMarketValue, 0);
+  const totalAcquisitionCost = properties.reduce((sum, p) => sum + p.acquisitionCost + p.renovationCost, 0);
   const totalEquity = totalPortfolioValue - totalAcquisitionCost;
   const equityPercent = ((totalEquity / totalAcquisitionCost) * 100).toFixed(1);
 
-  const activeTenants = mockTenants.filter(t => t.status === 'active').length;
+  const activeTenants = tenants.filter(t => t.status === 'active').length;
   
   // Generate automatic alerts
   const paymentAlerts = usePaymentAlerts({ 
-    properties: mockProperties, 
-    rentalHistory: mockRentalHistory 
+    properties, 
+    rentalHistory,
+    utilityPayments
   });
   const unreadAlerts = paymentAlerts;
 
@@ -71,14 +79,14 @@ export default function Dashboard() {
 
   // Property type distribution
   const typeDistribution = [
-    { name: 'Apartamentos', value: mockProperties.filter(p => p.type === 'apartment').length, color: 'hsl(221, 83%, 53%)' },
-    { name: 'Casas', value: mockProperties.filter(p => p.type === 'house').length, color: 'hsl(142, 71%, 45%)' },
-    { name: 'Comercial', value: mockProperties.filter(p => p.type === 'commercial').length, color: 'hsl(38, 92%, 50%)' },
-    { name: 'Kitnets', value: mockProperties.filter(p => p.type === 'kitnet').length, color: 'hsl(280, 65%, 60%)' },
+    { name: 'Apartamentos', value: properties.filter(p => p.type === 'apartment').length, color: 'hsl(221, 83%, 53%)' },
+    { name: 'Casas', value: properties.filter(p => p.type === 'house').length, color: 'hsl(142, 71%, 45%)' },
+    { name: 'Comercial', value: properties.filter(p => p.type === 'commercial').length, color: 'hsl(38, 92%, 50%)' },
+    { name: 'Kitnets', value: properties.filter(p => p.type === 'kitnet').length, color: 'hsl(280, 65%, 60%)' },
   ].filter(d => d.value > 0);
 
   // ROI comparison
-  const roiComparison = mockProperties.map(p => ({
+  const roiComparison = properties.map(p => ({
     name: p.name.split(' ')[0],
     roi: Number(((p.monthlyRent * 12) / (p.acquisitionCost + p.renovationCost) * 100).toFixed(2)),
     valorização: Number((((p.currentMarketValue - p.acquisitionCost - p.renovationCost) / (p.acquisitionCost + p.renovationCost)) * 100).toFixed(1)),
@@ -286,7 +294,7 @@ export default function Dashboard() {
             <h3 className="font-display font-semibold text-foreground">Imóveis em Destaque</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {mockProperties.slice(0, 2).map((property) => (
+            {properties.slice(0, 2).map((property) => (
               <PropertyCard key={property.id} property={property} />
             ))}
           </div>
