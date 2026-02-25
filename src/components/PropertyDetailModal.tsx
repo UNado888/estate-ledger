@@ -1192,25 +1192,36 @@ export function PropertyDetailModal({
                   const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
                   if (!targetPayment) return;
 
+                  const isLate = targetPayment.status === 'late';
+
                   setRentalHistoryState(prev =>
                     prev.map(r => {
                       if (r.id !== activeRental.id) return r;
                       return {
                         ...r,
-                        monthlyRent: newAmount,
-                        paymentHistory: r.paymentHistory.map(p =>
-                          p.month >= targetPayment.month
-                            ? { ...p, amount: newAmount }
-                            : p
-                        ),
+                        // Only update base rent if it's not a late payment adjustment
+                        ...(isLate ? {} : { monthlyRent: newAmount }),
+                        paymentHistory: r.paymentHistory.map(p => {
+                          if (isLate) {
+                            // Late: only change this specific payment (fee/interest)
+                            return p.id === paymentId ? { ...p, amount: newAmount } : p;
+                          }
+                          // Normal: propagate to this and all future months
+                          return p.month >= targetPayment.month ? { ...p, amount: newAmount } : p;
+                        }),
                       };
                     })
                   );
-                  // Also update property monthlyRent
-                  const updatedProperty = { ...currentProperty, monthlyRent: newAmount };
-                  setCurrentProperty(updatedProperty);
-                  onUpdateProperty?.(updatedProperty);
-                  toast.success(`Valor atualizado para ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
+
+                  if (!isLate) {
+                    // Update property monthlyRent only for non-late adjustments
+                    const updatedProperty = { ...currentProperty, monthlyRent: newAmount };
+                    setCurrentProperty(updatedProperty);
+                    onUpdateProperty?.(updatedProperty);
+                    toast.success(`Valor atualizado para ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
+                  } else {
+                    toast.success(`Valor do pagamento atrasado ajustado para ${formatCurrency(newAmount)} (juros/multa)`);
+                  }
                 };
 
                 return (
