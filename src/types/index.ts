@@ -69,6 +69,7 @@ export interface PaymentRecord {
   paidDate?: string;
   amount: number;
   status: 'paid' | 'pending' | 'late';
+  notes?: string;
 }
 
 export type UtilityType = 'water' | 'electricity' | 'gas' | 'condo';
