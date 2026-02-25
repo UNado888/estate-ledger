@@ -67,88 +67,100 @@ function PaymentRow({ payment, statusInfo, StatusIcon, monthLabel, formatCurrenc
   monthLabel: string;
   formatCurrency: (v: number) => string;
   onMarkAsPaid: (id: string) => void;
-  onChangeAmount: (id: string, amount: number) => void;
+  onChangeAmount: (id: string, amount: number, notes?: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(payment.amount));
+  const [editNotes, setEditNotes] = useState(payment.notes || '');
+  const isLate = payment.status === 'late';
+
+  const handleConfirm = () => {
+    const val = parseFloat(editValue);
+    if (val > 0) {
+      onChangeAmount(payment.id, val, isLate ? editNotes : undefined);
+      setEditing(false);
+    }
+  };
 
   return (
     <div
       className={cn(
-        "flex items-center justify-between p-3 rounded-lg border",
+        "flex flex-col gap-2 p-3 rounded-lg border",
         payment.status === 'paid' && "bg-success/5 border-success/20",
         payment.status === 'pending' && "bg-warning/5 border-warning/20",
         payment.status === 'late' && "bg-destructive/5 border-destructive/20"
       )}
     >
-      <div className="flex items-center gap-3">
-        <StatusIcon className={cn("w-5 h-5", statusInfo.className)} />
-        <div>
-          <p className="font-medium text-foreground capitalize">{monthLabel}</p>
-          <p className="text-xs text-muted-foreground">
-            Venc: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
-            {payment.paidDate && ` • Pago: ${new Date(payment.paidDate).toLocaleDateString('pt-BR')}`}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <StatusIcon className={cn("w-5 h-5", statusInfo.className)} />
+          <div>
+            <p className="font-medium text-foreground capitalize">{monthLabel}</p>
+            <p className="text-xs text-muted-foreground">
+              Venc: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+              {payment.paidDate && ` • Pago: ${new Date(payment.paidDate).toLocaleDateString('pt-BR')}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">R$</span>
+              <input
+                type="number"
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleConfirm();
+                  if (e.key === 'Escape') setEditing(false);
+                }}
+                autoFocus
+                className="w-24 h-8 px-2 text-sm rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={handleConfirm}>
+                <Check className="w-4 h-4 text-success" />
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditing(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setEditValue(String(payment.amount)); setEditNotes(payment.notes || ''); setEditing(true); }}
+              className="font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1 group"
+              title="Clique para alterar o valor"
+            >
+              {formatCurrency(payment.amount)}
+              <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" />
+            </button>
+          )}
+          {payment.status !== 'paid' ? (
+            <Button size="sm" onClick={() => onMarkAsPaid(payment.id)} className="gap-1.5">
+              <Check className="w-4 h-4" />
+              Pagar
+            </Button>
+          ) : (
+            <Badge className="bg-success/10 text-success border-0">
+              {statusInfo.label}
+            </Badge>
+          )}
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        {editing ? (
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">R$</span>
-            <input
-              type="number"
-              value={editValue}
-              onChange={e => setEditValue(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  const val = parseFloat(editValue);
-                  if (val > 0) { onChangeAmount(payment.id, val); setEditing(false); }
-                }
-                if (e.key === 'Escape') setEditing(false);
-              }}
-              autoFocus
-              className="w-24 h-8 px-2 text-sm rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
-              onClick={() => {
-                const val = parseFloat(editValue);
-                if (val > 0) { onChangeAmount(payment.id, val); setEditing(false); }
-              }}
-            >
-              <Check className="w-4 h-4 text-success" />
-            </Button>
-            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditing(false)}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        ) : (
-          <button
-            onClick={() => { setEditValue(String(payment.amount)); setEditing(true); }}
-            className="font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1 group"
-            title="Clique para alterar o valor"
-          >
-            {formatCurrency(payment.amount)}
-            <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" />
-          </button>
-        )}
-        {payment.status !== 'paid' ? (
-          <Button
-            size="sm"
-            onClick={() => onMarkAsPaid(payment.id)}
-            className="gap-1.5"
-          >
-            <Check className="w-4 h-4" />
-            Pagar
-          </Button>
-        ) : (
-          <Badge className="bg-success/10 text-success border-0">
-            {statusInfo.label}
-          </Badge>
-        )}
-      </div>
+      {/* Notes input for late payments when editing */}
+      {editing && isLate && (
+        <input
+          type="text"
+          value={editNotes}
+          onChange={e => setEditNotes(e.target.value)}
+          placeholder="Motivo do ajuste (multa, juros, acordo...)"
+          onKeyDown={e => { if (e.key === 'Enter') handleConfirm(); }}
+          className="w-full h-8 px-3 text-sm rounded border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      )}
+      {/* Show saved notes */}
+      {!editing && payment.notes && (
+        <p className="text-xs text-muted-foreground italic pl-8">📝 {payment.notes}</p>
+      )}
     </div>
   );
 }
@@ -1187,7 +1199,7 @@ export function PropertyDetailModal({
                   toast.success('Pagamento registrado como pago!');
                 };
 
-                const handleChangeAmount = (paymentId: string, newAmount: number) => {
+                const handleChangeAmount = (paymentId: string, newAmount: number, notes?: string) => {
                   // Find the target payment's month
                   const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
                   if (!targetPayment) return;
@@ -1199,14 +1211,11 @@ export function PropertyDetailModal({
                       if (r.id !== activeRental.id) return r;
                       return {
                         ...r,
-                        // Only update base rent if it's not a late payment adjustment
                         ...(isLate ? {} : { monthlyRent: newAmount }),
                         paymentHistory: r.paymentHistory.map(p => {
                           if (isLate) {
-                            // Late: only change this specific payment (fee/interest)
-                            return p.id === paymentId ? { ...p, amount: newAmount } : p;
+                            return p.id === paymentId ? { ...p, amount: newAmount, notes: notes || undefined } : p;
                           }
-                          // Normal: propagate to this and all future months
                           return p.month >= targetPayment.month ? { ...p, amount: newAmount } : p;
                         }),
                       };
@@ -1214,13 +1223,12 @@ export function PropertyDetailModal({
                   );
 
                   if (!isLate) {
-                    // Update property monthlyRent only for non-late adjustments
                     const updatedProperty = { ...currentProperty, monthlyRent: newAmount };
                     setCurrentProperty(updatedProperty);
                     onUpdateProperty?.(updatedProperty);
                     toast.success(`Valor atualizado para ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
                   } else {
-                    toast.success(`Valor do pagamento atrasado ajustado para ${formatCurrency(newAmount)} (juros/multa)`);
+                    toast.success(`Valor do pagamento atrasado ajustado para ${formatCurrency(newAmount)}${notes ? ` — ${notes}` : ' (juros/multa)'}`);
                   }
                 };
 
