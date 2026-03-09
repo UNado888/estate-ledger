@@ -1233,11 +1233,10 @@ export function PropertyDetailModal({
                   toast.success('Pagamento registrado como pago!');
                 };
 
-                const handleChangeAmount = (paymentId: string, newAmount: number, notes?: string) => {
+                const handleChangeAmount = (paymentId: string, newAmount: number, type: 'reajuste' | 'juros_multa', notes?: string) => {
                   const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
                   if (!targetPayment) return;
 
-                  const isLate = targetPayment.status === 'late';
                   const previousAmount = targetPayment.amount;
 
                   // Record adjustment in history
@@ -1246,35 +1245,44 @@ export function PropertyDetailModal({
                     date: new Date().toISOString(),
                     previousAmount,
                     newAmount,
-                    type: isLate ? 'juros_multa' : 'reajuste',
+                    type,
                     notes: notes || undefined,
                     paymentMonth: targetPayment.month,
                   };
                   setAdjustmentHistory(prev => [adjustment, ...prev]);
 
-                  setRentalHistoryState(prev =>
-                    prev.map(r => {
-                      if (r.id !== activeRental.id) return r;
-                      return {
-                        ...r,
-                        ...(isLate ? {} : { monthlyRent: newAmount }),
-                        paymentHistory: r.paymentHistory.map(p => {
-                          if (isLate) {
-                            return p.id === paymentId ? { ...p, amount: newAmount, notes: notes || undefined } : p;
-                          }
-                          return p.month >= targetPayment.month ? { ...p, amount: newAmount } : p;
-                        }),
-                      };
-                    })
-                  );
-
-                  if (!isLate) {
+                  if (type === 'reajuste') {
+                    // Propagate to this and all future unpaid months + update base rent
+                    setRentalHistoryState(prev =>
+                      prev.map(r => {
+                        if (r.id !== activeRental.id) return r;
+                        return {
+                          ...r,
+                          monthlyRent: newAmount,
+                          paymentHistory: r.paymentHistory.map(p =>
+                            p.month >= targetPayment.month ? { ...p, amount: newAmount } : p
+                          ),
+                        };
+                      })
+                    );
                     const updatedProperty = { ...currentProperty, monthlyRent: newAmount };
                     setCurrentProperty(updatedProperty);
                     onUpdateProperty?.(updatedProperty);
-                    toast.success(`Valor atualizado para ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
+                    toast.success(`Reajuste aplicado: ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
                   } else {
-                    toast.success(`Valor do pagamento atrasado ajustado para ${formatCurrency(newAmount)}${notes ? ` — ${notes}` : ' (juros/multa)'}`);
+                    // Only change this specific payment (fine/interest)
+                    setRentalHistoryState(prev =>
+                      prev.map(r => {
+                        if (r.id !== activeRental.id) return r;
+                        return {
+                          ...r,
+                          paymentHistory: r.paymentHistory.map(p =>
+                            p.id === paymentId ? { ...p, amount: newAmount, notes: notes || undefined } : p
+                          ),
+                        };
+                      })
+                    );
+                    toast.success(`Multa/juros aplicado: ${formatCurrency(newAmount)} em ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}${notes ? ` — ${notes}` : ''}`);
                   }
                 };
 
