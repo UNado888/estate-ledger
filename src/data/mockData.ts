@@ -583,6 +583,31 @@ export const mockRentalHistory: RentalHistory[] = [
     monthlyRent: 22000,
     paymentHistory: generatePayments('2017-01-01', '2021-05-31', 22000, 0.25),
   },
+  // New properties with high late rates for testing adjustments
+  {
+    id: '12',
+    propertyId: '9',
+    tenantId: '10',
+    startDate: '2023-03-01',
+    monthlyRent: 2800,
+    paymentHistory: generatePayments('2023-03-01', undefined, 2800, 0.45, 2),
+  },
+  {
+    id: '13',
+    propertyId: '10',
+    tenantId: '11',
+    startDate: '2022-06-01',
+    monthlyRent: 7500,
+    paymentHistory: generatePayments('2022-06-01', undefined, 7500, 0.35, 1),
+  },
+  {
+    id: '14',
+    propertyId: '11',
+    tenantId: '12',
+    startDate: '2023-08-01',
+    monthlyRent: 3200,
+    paymentHistory: generatePayments('2023-08-01', undefined, 3200, 0.50, 3),
+  },
 ];
 
 export const mockFurniture: Furniture[] = [
