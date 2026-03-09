@@ -1,7 +1,7 @@
 import { Property, Tenant, Alert, FinancialRecord, RentalHistory, Furniture, PaymentRecord } from '@/types';
 
 // Increment this version whenever mock data changes to invalidate localStorage cache
-export const MOCK_DATA_VERSION = 3;
+export const MOCK_DATA_VERSION = 4;
 export const mockProperties: Property[] = [
   {
     id: '1',
