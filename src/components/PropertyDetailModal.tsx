@@ -67,17 +67,17 @@ function PaymentRow({ payment, statusInfo, StatusIcon, monthLabel, formatCurrenc
   monthLabel: string;
   formatCurrency: (v: number) => string;
   onMarkAsPaid: (id: string) => void;
-  onChangeAmount: (id: string, amount: number, notes?: string) => void;
+  onChangeAmount: (id: string, amount: number, type: 'reajuste' | 'juros_multa', notes?: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(payment.amount));
   const [editNotes, setEditNotes] = useState(payment.notes || '');
-  const isLate = payment.status === 'late';
+  const [adjustType, setAdjustType] = useState<'reajuste' | 'juros_multa'>('reajuste');
 
   const handleConfirm = () => {
     const val = parseFloat(editValue);
     if (val > 0) {
-      onChangeAmount(payment.id, val, isLate ? editNotes : undefined);
+      onChangeAmount(payment.id, val, adjustType, editNotes || undefined);
       setEditing(false);
     }
   };
@@ -126,7 +126,7 @@ function PaymentRow({ payment, statusInfo, StatusIcon, monthLabel, formatCurrenc
             </div>
           ) : (
             <button
-              onClick={() => { setEditValue(String(payment.amount)); setEditNotes(payment.notes || ''); setEditing(true); }}
+              onClick={() => { setEditValue(String(payment.amount)); setEditNotes(payment.notes || ''); setAdjustType('reajuste'); setEditing(true); }}
               className="font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1 group"
               title="Clique para alterar o valor"
             >
@@ -146,16 +146,49 @@ function PaymentRow({ payment, statusInfo, StatusIcon, monthLabel, formatCurrenc
           )}
         </div>
       </div>
-      {/* Notes input for late payments when editing */}
-      {editing && isLate && (
-        <input
-          type="text"
-          value={editNotes}
-          onChange={e => setEditNotes(e.target.value)}
-          placeholder="Motivo do ajuste (multa, juros, acordo...)"
-          onKeyDown={e => { if (e.key === 'Enter') handleConfirm(); }}
-          className="w-full h-8 px-3 text-sm rounded border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
+      {/* Adjustment type selector + notes when editing */}
+      {editing && (
+        <div className="flex flex-col gap-2 pl-8">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAdjustType('reajuste')}
+              className={cn(
+                "px-3 py-1.5 text-xs rounded-full border transition-colors font-medium",
+                adjustType === 'reajuste'
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/50"
+              )}
+            >
+              <TrendingUp className="w-3 h-3 inline mr-1" />
+              Reajuste de aluguel
+            </button>
+            <button
+              onClick={() => setAdjustType('juros_multa')}
+              className={cn(
+                "px-3 py-1.5 text-xs rounded-full border transition-colors font-medium",
+                adjustType === 'juros_multa'
+                  ? "bg-warning text-warning-foreground border-warning"
+                  : "bg-card text-muted-foreground border-border hover:border-warning/50"
+              )}
+            >
+              <AlertTriangle className="w-3 h-3 inline mr-1" />
+              Multa / Juros
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {adjustType === 'reajuste'
+              ? '⬆️ O novo valor será aplicado a este e todos os meses seguintes.'
+              : '⚠️ O ajuste será aplicado apenas a este mês (multa, juros, acordo).'}
+          </p>
+          <input
+            type="text"
+            value={editNotes}
+            onChange={e => setEditNotes(e.target.value)}
+            placeholder={adjustType === 'reajuste' ? "Motivo do reajuste (ex: IGPM, acordo...)" : "Motivo do ajuste (multa, juros, acordo...)"}
+            onKeyDown={e => { if (e.key === 'Enter') handleConfirm(); }}
+            className="w-full h-8 px-3 text-sm rounded border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
       )}
       {/* Show saved notes */}
       {!editing && payment.notes && (
@@ -1200,11 +1233,10 @@ export function PropertyDetailModal({
                   toast.success('Pagamento registrado como pago!');
                 };
 
-                const handleChangeAmount = (paymentId: string, newAmount: number, notes?: string) => {
+                const handleChangeAmount = (paymentId: string, newAmount: number, type: 'reajuste' | 'juros_multa', notes?: string) => {
                   const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
                   if (!targetPayment) return;
 
-                  const isLate = targetPayment.status === 'late';
                   const previousAmount = targetPayment.amount;
 
                   // Record adjustment in history
@@ -1213,35 +1245,44 @@ export function PropertyDetailModal({
                     date: new Date().toISOString(),
                     previousAmount,
                     newAmount,
-                    type: isLate ? 'juros_multa' : 'reajuste',
+                    type,
                     notes: notes || undefined,
                     paymentMonth: targetPayment.month,
                   };
                   setAdjustmentHistory(prev => [adjustment, ...prev]);
 
-                  setRentalHistoryState(prev =>
-                    prev.map(r => {
-                      if (r.id !== activeRental.id) return r;
-                      return {
-                        ...r,
-                        ...(isLate ? {} : { monthlyRent: newAmount }),
-                        paymentHistory: r.paymentHistory.map(p => {
-                          if (isLate) {
-                            return p.id === paymentId ? { ...p, amount: newAmount, notes: notes || undefined } : p;
-                          }
-                          return p.month >= targetPayment.month ? { ...p, amount: newAmount } : p;
-                        }),
-                      };
-                    })
-                  );
-
-                  if (!isLate) {
+                  if (type === 'reajuste') {
+                    // Propagate to this and all future unpaid months + update base rent
+                    setRentalHistoryState(prev =>
+                      prev.map(r => {
+                        if (r.id !== activeRental.id) return r;
+                        return {
+                          ...r,
+                          monthlyRent: newAmount,
+                          paymentHistory: r.paymentHistory.map(p =>
+                            p.month >= targetPayment.month ? { ...p, amount: newAmount } : p
+                          ),
+                        };
+                      })
+                    );
                     const updatedProperty = { ...currentProperty, monthlyRent: newAmount };
                     setCurrentProperty(updatedProperty);
                     onUpdateProperty?.(updatedProperty);
-                    toast.success(`Valor atualizado para ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
+                    toast.success(`Reajuste aplicado: ${formatCurrency(newAmount)} a partir de ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`);
                   } else {
-                    toast.success(`Valor do pagamento atrasado ajustado para ${formatCurrency(newAmount)}${notes ? ` — ${notes}` : ' (juros/multa)'}`);
+                    // Only change this specific payment (fine/interest)
+                    setRentalHistoryState(prev =>
+                      prev.map(r => {
+                        if (r.id !== activeRental.id) return r;
+                        return {
+                          ...r,
+                          paymentHistory: r.paymentHistory.map(p =>
+                            p.id === paymentId ? { ...p, amount: newAmount, notes: notes || undefined } : p
+                          ),
+                        };
+                      })
+                    );
+                    toast.success(`Multa/juros aplicado: ${formatCurrency(newAmount)} em ${new Date(targetPayment.month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}${notes ? ` — ${notes}` : ''}`);
                   }
                 };
 
