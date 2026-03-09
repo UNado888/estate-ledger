@@ -189,6 +189,7 @@ export function PropertyDetailModal({
   };
   // paymentHistory state removed - now uses rentalHistoryState directly
   const [allUtilityPayments, setAllUtilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
+  const [adjustmentHistory, setAdjustmentHistory] = useLocalStorage<RentAdjustment[]>(`imobiliaria-adjustments-${property.id}`, []);
   
   // Filter utility payments for this property
   const utilityPayments = allUtilityPayments.filter(p => p.propertyId === property.id);
