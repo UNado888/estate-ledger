@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord } from '@/types';
+import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord, RentAdjustment } from '@/types';
 import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star, History } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
@@ -189,6 +189,7 @@ export function PropertyDetailModal({
   };
   // paymentHistory state removed - now uses rentalHistoryState directly
   const [allUtilityPayments, setAllUtilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
+  const [adjustmentHistory, setAdjustmentHistory] = useLocalStorage<RentAdjustment[]>(`imobiliaria-adjustments-${property.id}`, []);
   
   // Filter utility payments for this property
   const utilityPayments = allUtilityPayments.filter(p => p.propertyId === property.id);
@@ -1200,11 +1201,23 @@ export function PropertyDetailModal({
                 };
 
                 const handleChangeAmount = (paymentId: string, newAmount: number, notes?: string) => {
-                  // Find the target payment's month
                   const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
                   if (!targetPayment) return;
 
                   const isLate = targetPayment.status === 'late';
+                  const previousAmount = targetPayment.amount;
+
+                  // Record adjustment in history
+                  const adjustment: RentAdjustment = {
+                    id: Date.now().toString(),
+                    date: new Date().toISOString(),
+                    previousAmount,
+                    newAmount,
+                    type: isLate ? 'juros_multa' : 'reajuste',
+                    notes: notes || undefined,
+                    paymentMonth: targetPayment.month,
+                  };
+                  setAdjustmentHistory(prev => [adjustment, ...prev]);
 
                   setRentalHistoryState(prev =>
                     prev.map(r => {
@@ -1277,6 +1290,56 @@ export function PropertyDetailModal({
                         </div>
                       </div>
                     </div>
+
+                    {/* Adjustment History */}
+                    {adjustmentHistory.length > 0 && (
+                      <div className="bg-secondary/30 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <History className="w-5 h-5 text-primary" />
+                          <h3 className="font-semibold text-foreground">Histórico de Reajustes</h3>
+                          <Badge variant="secondary" className="ml-auto">{adjustmentHistory.length}</Badge>
+                        </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {adjustmentHistory.map((adj) => (
+                            <div key={adj.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card text-sm">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "w-8 h-8 rounded-full flex items-center justify-center",
+                                  adj.type === 'reajuste' ? "bg-primary/10" : "bg-warning/10"
+                                )}>
+                                  {adj.type === 'reajuste' ? (
+                                    <TrendingUp className="w-4 h-4 text-primary" />
+                                  ) : (
+                                    <AlertTriangle className="w-4 h-4 text-warning" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {adj.type === 'reajuste' ? 'Reajuste de aluguel' : 'Ajuste por atraso'}
+                                    {adj.paymentMonth && (
+                                      <span className="text-muted-foreground font-normal">
+                                        {' — '}
+                                        {new Date(adj.paymentMonth + '-01').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                                      </span>
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(adj.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    {adj.notes && ` • ${adj.notes}`}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground line-through">{formatCurrency(adj.previousAmount)}</p>
+                                <p className={cn("font-semibold", adj.newAmount > adj.previousAmount ? "text-destructive" : "text-success")}>
+                                  {formatCurrency(adj.newAmount)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Payment List */}
                     <div className="bg-secondary/30 rounded-xl p-5">

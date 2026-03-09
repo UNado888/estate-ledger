@@ -109,6 +109,16 @@ export interface Alert {
   read: boolean;
 }
 
+export interface RentAdjustment {
+  id: string;
+  date: string;
+  previousAmount: number;
+  newAmount: number;
+  type: 'reajuste' | 'juros_multa';
+  notes?: string;
+  paymentMonth?: string;
+}
+
 export interface FinancialRecord {
   month: string;
   year: number;
