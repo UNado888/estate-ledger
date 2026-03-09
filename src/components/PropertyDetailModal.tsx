@@ -1291,6 +1291,56 @@ export function PropertyDetailModal({
                       </div>
                     </div>
 
+                    {/* Adjustment History */}
+                    {adjustmentHistory.length > 0 && (
+                      <div className="bg-secondary/30 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <History className="w-5 h-5 text-primary" />
+                          <h3 className="font-semibold text-foreground">Histórico de Reajustes</h3>
+                          <Badge variant="secondary" className="ml-auto">{adjustmentHistory.length}</Badge>
+                        </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {adjustmentHistory.map((adj) => (
+                            <div key={adj.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card text-sm">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "w-8 h-8 rounded-full flex items-center justify-center",
+                                  adj.type === 'reajuste' ? "bg-primary/10" : "bg-warning/10"
+                                )}>
+                                  {adj.type === 'reajuste' ? (
+                                    <TrendingUp className="w-4 h-4 text-primary" />
+                                  ) : (
+                                    <AlertTriangle className="w-4 h-4 text-warning" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {adj.type === 'reajuste' ? 'Reajuste de aluguel' : 'Ajuste por atraso'}
+                                    {adj.paymentMonth && (
+                                      <span className="text-muted-foreground font-normal">
+                                        {' — '}
+                                        {new Date(adj.paymentMonth + '-01').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                                      </span>
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(adj.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    {adj.notes && ` • ${adj.notes}`}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground line-through">{formatCurrency(adj.previousAmount)}</p>
+                                <p className={cn("font-semibold", adj.newAmount > adj.previousAmount ? "text-destructive" : "text-success")}>
+                                  {formatCurrency(adj.newAmount)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Payment List */}
                     <div className="bg-secondary/30 rounded-xl p-5">
                       <h3 className="font-semibold text-foreground mb-4">Pagamentos Mensais</h3>
