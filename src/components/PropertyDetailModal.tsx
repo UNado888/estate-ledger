@@ -1201,11 +1201,23 @@ export function PropertyDetailModal({
                 };
 
                 const handleChangeAmount = (paymentId: string, newAmount: number, notes?: string) => {
-                  // Find the target payment's month
                   const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
                   if (!targetPayment) return;
 
                   const isLate = targetPayment.status === 'late';
+                  const previousAmount = targetPayment.amount;
+
+                  // Record adjustment in history
+                  const adjustment: RentAdjustment = {
+                    id: Date.now().toString(),
+                    date: new Date().toISOString(),
+                    previousAmount,
+                    newAmount,
+                    type: isLate ? 'juros_multa' : 'reajuste',
+                    notes: notes || undefined,
+                    paymentMonth: targetPayment.month,
+                  };
+                  setAdjustmentHistory(prev => [adjustment, ...prev]);
 
                   setRentalHistoryState(prev =>
                     prev.map(r => {
