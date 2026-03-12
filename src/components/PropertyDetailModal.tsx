@@ -266,6 +266,7 @@ function EditContractForm({ rental, onSave, onCancel, formatCurrency }: {
 }
 
 
+export function PropertyDetailModal({ 
   property, 
   onClose, 
   onUpdateProperty,
