@@ -197,8 +197,75 @@ function PaymentRow({ payment, statusInfo, StatusIcon, monthLabel, formatCurrenc
     </div>
   );
 }
+// Inline edit form for contract details
+function EditContractForm({ rental, onSave, onCancel, formatCurrency }: {
+  rental: RentalHistory;
+  onSave: (updates: Partial<RentalHistory>) => void;
+  onCancel: () => void;
+  formatCurrency: (v: number) => string;
+}) {
+  const [startDate, setStartDate] = useState(rental.startDate);
+  const [endDate, setEndDate] = useState(rental.contractEndDate || '');
+  const [duration, setDuration] = useState(String(rental.contractDurationMonths || 12));
+  const [rent, setRent] = useState(String(rental.monthlyRent));
 
-export function PropertyDetailModal({ 
+  const handleSave = () => {
+    onSave({
+      startDate,
+      contractEndDate: endDate,
+      contractDurationMonths: Number(duration),
+      monthlyRent: Number(rent),
+    });
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border space-y-4">
+      <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm">
+        <Edit2 className="w-4 h-4 text-primary" />
+        Editar Contrato
+      </h4>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Data de Entrada</label>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Duração (meses)</label>
+          <select value={duration} onChange={e => {
+            setDuration(e.target.value);
+            if (startDate) {
+              const d = new Date(startDate);
+              d.setMonth(d.getMonth() + Number(e.target.value));
+              setEndDate(d.toISOString().split('T')[0]);
+            }
+          }}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+            {[6,12,18,24,30,36,48,60].map(m => (
+              <option key={m} value={m}>{m} meses</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Término</label>
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Aluguel (R$)</label>
+          <input type="number" value={rent} onChange={e => setRent(e.target.value)}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
+        <Button size="sm" onClick={handleSave}>Salvar</Button>
+      </div>
+    </div>
+  );
+}
+
+
   property, 
   onClose, 
   onUpdateProperty,
