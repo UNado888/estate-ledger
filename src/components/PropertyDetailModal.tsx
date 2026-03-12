@@ -210,7 +210,7 @@ export function PropertyDetailModal({
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [showAssignTenant, setShowAssignTenant] = useState(false);
   const [isEditingContract, setIsEditingContract] = useState(false);
-  const contractFileRef = React.useRef<HTMLInputElement>(null);
+  const contractFileRef = useRef<HTMLInputElement>(null);
   // showPaymentModal removed - payments now use inline pay button
   const [allRentalHistory, setAllRentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', mockRentalHistory);
   const rentalHistoryState = allRentalHistory.filter(r => r.propertyId === property.id);
