@@ -1155,12 +1155,52 @@ export function PropertyDetailModal({
                   {(() => {
                     const activeRental = rentalHistoryState.find(r => r.tenantId === currentProperty.currentTenantId && !r.endDate);
                     if (!activeRental) return null;
+
+                    const handleSaveContract = (updates: Partial<RentalHistory>) => {
+                      setRentalHistoryState(prev => prev.map(r => r.id === activeRental.id ? { ...r, ...updates } : r));
+                      if (updates.monthlyRent !== undefined) {
+                        const updatedProp = { ...currentProperty, monthlyRent: updates.monthlyRent };
+                        setCurrentProperty(updatedProp);
+                        onUpdateProperty?.(updatedProp);
+                      }
+                      setIsEditingContract(false);
+                      toast.success('Contrato atualizado!');
+                    };
+
+                    const handleContractFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 10 * 1024 * 1024) { toast.error('Máximo 10MB'); return; }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        handleSaveContract({ contractFileName: file.name, contractFileBase64: reader.result as string });
+                      };
+                      reader.readAsDataURL(file);
+                    };
+
+                    if (isEditingContract) {
+                      return (
+                        <EditContractForm
+                          rental={activeRental}
+                          onSave={handleSaveContract}
+                          onCancel={() => setIsEditingContract(false)}
+                          formatCurrency={formatCurrency}
+                        />
+                      );
+                    }
+
                     return (
                       <div className="mt-4 pt-4 border-t border-border space-y-3">
-                        <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm">
-                          <FileText className="w-4 h-4 text-primary" />
-                          Contrato
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm">
+                            <FileText className="w-4 h-4 text-primary" />
+                            Contrato
+                          </h4>
+                          <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => setIsEditingContract(true)}>
+                            <Edit2 className="w-3 h-3" />
+                            Editar
+                          </Button>
+                        </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Início</span>
                           <span className="text-foreground">{new Date(activeRental.startDate).toLocaleDateString('pt-BR')}</span>
@@ -1181,28 +1221,54 @@ export function PropertyDetailModal({
                           <span className="text-muted-foreground">Aluguel</span>
                           <span className="font-medium text-foreground">{formatCurrency(activeRental.monthlyRent)}/mês</span>
                         </div>
-                        {activeRental.contractFileName && activeRental.contractFileBase64 && (
+                        {activeRental.contractFileName && activeRental.contractFileBase64 ? (
                           <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
                             <div className="flex items-center gap-2 min-w-0">
                               <FileText className="w-4 h-4 text-primary shrink-0" />
                               <span className="text-sm text-foreground truncate">{activeRental.contractFileName}</span>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="shrink-0 gap-1"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = activeRental.contractFileBase64!;
-                                link.download = activeRental.contractFileName!;
-                                link.click();
-                              }}
-                            >
-                              <Download className="w-3 h-3" />
-                              Baixar
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="shrink-0 gap-1"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = activeRental.contractFileBase64!;
+                                  link.download = activeRental.contractFileName!;
+                                  link.click();
+                                }}
+                              >
+                                <Download className="w-3 h-3" />
+                                Baixar
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="shrink-0 gap-1 text-xs"
+                                onClick={() => contractFileRef.current?.click()}
+                              >
+                                Substituir
+                              </Button>
+                            </div>
                           </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => contractFileRef.current?.click()}
+                            className="w-full p-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Anexar contrato
+                          </button>
                         )}
+                        <input
+                          ref={contractFileRef}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          onChange={handleContractFileChange}
+                          className="hidden"
+                        />
                       </div>
                     );
                   })()}
