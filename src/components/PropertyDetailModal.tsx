@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord, RentAdjustment } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star, History, FileText, Download } from 'lucide-react';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star, History, FileText, Download, Upload } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -197,6 +197,74 @@ function PaymentRow({ payment, statusInfo, StatusIcon, monthLabel, formatCurrenc
     </div>
   );
 }
+// Inline edit form for contract details
+function EditContractForm({ rental, onSave, onCancel, formatCurrency }: {
+  rental: RentalHistory;
+  onSave: (updates: Partial<RentalHistory>) => void;
+  onCancel: () => void;
+  formatCurrency: (v: number) => string;
+}) {
+  const [startDate, setStartDate] = useState(rental.startDate);
+  const [endDate, setEndDate] = useState(rental.contractEndDate || '');
+  const [duration, setDuration] = useState(String(rental.contractDurationMonths || 12));
+  const [rent, setRent] = useState(String(rental.monthlyRent));
+
+  const handleSave = () => {
+    onSave({
+      startDate,
+      contractEndDate: endDate,
+      contractDurationMonths: Number(duration),
+      monthlyRent: Number(rent),
+    });
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border space-y-4">
+      <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm">
+        <Edit2 className="w-4 h-4 text-primary" />
+        Editar Contrato
+      </h4>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Data de Entrada</label>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Duração (meses)</label>
+          <select value={duration} onChange={e => {
+            setDuration(e.target.value);
+            if (startDate) {
+              const d = new Date(startDate);
+              d.setMonth(d.getMonth() + Number(e.target.value));
+              setEndDate(d.toISOString().split('T')[0]);
+            }
+          }}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+            {[6,12,18,24,30,36,48,60].map(m => (
+              <option key={m} value={m}>{m} meses</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Término</label>
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Aluguel (R$)</label>
+          <input type="number" value={rent} onChange={e => setRent(e.target.value)}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
+        <Button size="sm" onClick={handleSave}>Salvar</Button>
+      </div>
+    </div>
+  );
+}
+
 
 export function PropertyDetailModal({ 
   property, 
@@ -209,6 +277,8 @@ export function PropertyDetailModal({
   const [currentProperty, setCurrentProperty] = useState(property);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [showAssignTenant, setShowAssignTenant] = useState(false);
+  const [isEditingContract, setIsEditingContract] = useState(false);
+  const contractFileRef = useRef<HTMLInputElement>(null);
   // showPaymentModal removed - payments now use inline pay button
   const [allRentalHistory, setAllRentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', mockRentalHistory);
   const rentalHistoryState = allRentalHistory.filter(r => r.propertyId === property.id);
@@ -1153,12 +1223,52 @@ export function PropertyDetailModal({
                   {(() => {
                     const activeRental = rentalHistoryState.find(r => r.tenantId === currentProperty.currentTenantId && !r.endDate);
                     if (!activeRental) return null;
+
+                    const handleSaveContract = (updates: Partial<RentalHistory>) => {
+                      setRentalHistoryState(prev => prev.map(r => r.id === activeRental.id ? { ...r, ...updates } : r));
+                      if (updates.monthlyRent !== undefined) {
+                        const updatedProp = { ...currentProperty, monthlyRent: updates.monthlyRent };
+                        setCurrentProperty(updatedProp);
+                        onUpdateProperty?.(updatedProp);
+                      }
+                      setIsEditingContract(false);
+                      toast.success('Contrato atualizado!');
+                    };
+
+                    const handleContractFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 10 * 1024 * 1024) { toast.error('Máximo 10MB'); return; }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        handleSaveContract({ contractFileName: file.name, contractFileBase64: reader.result as string });
+                      };
+                      reader.readAsDataURL(file);
+                    };
+
+                    if (isEditingContract) {
+                      return (
+                        <EditContractForm
+                          rental={activeRental}
+                          onSave={handleSaveContract}
+                          onCancel={() => setIsEditingContract(false)}
+                          formatCurrency={formatCurrency}
+                        />
+                      );
+                    }
+
                     return (
                       <div className="mt-4 pt-4 border-t border-border space-y-3">
-                        <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm">
-                          <FileText className="w-4 h-4 text-primary" />
-                          Contrato
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm">
+                            <FileText className="w-4 h-4 text-primary" />
+                            Contrato
+                          </h4>
+                          <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => setIsEditingContract(true)}>
+                            <Edit2 className="w-3 h-3" />
+                            Editar
+                          </Button>
+                        </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Início</span>
                           <span className="text-foreground">{new Date(activeRental.startDate).toLocaleDateString('pt-BR')}</span>
@@ -1179,28 +1289,54 @@ export function PropertyDetailModal({
                           <span className="text-muted-foreground">Aluguel</span>
                           <span className="font-medium text-foreground">{formatCurrency(activeRental.monthlyRent)}/mês</span>
                         </div>
-                        {activeRental.contractFileName && activeRental.contractFileBase64 && (
+                        {activeRental.contractFileName && activeRental.contractFileBase64 ? (
                           <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
                             <div className="flex items-center gap-2 min-w-0">
                               <FileText className="w-4 h-4 text-primary shrink-0" />
                               <span className="text-sm text-foreground truncate">{activeRental.contractFileName}</span>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="shrink-0 gap-1"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = activeRental.contractFileBase64!;
-                                link.download = activeRental.contractFileName!;
-                                link.click();
-                              }}
-                            >
-                              <Download className="w-3 h-3" />
-                              Baixar
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="shrink-0 gap-1"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = activeRental.contractFileBase64!;
+                                  link.download = activeRental.contractFileName!;
+                                  link.click();
+                                }}
+                              >
+                                <Download className="w-3 h-3" />
+                                Baixar
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="shrink-0 gap-1 text-xs"
+                                onClick={() => contractFileRef.current?.click()}
+                              >
+                                Substituir
+                              </Button>
+                            </div>
                           </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => contractFileRef.current?.click()}
+                            className="w-full p-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Anexar contrato
+                          </button>
                         )}
+                        <input
+                          ref={contractFileRef}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          onChange={handleContractFileChange}
+                          className="hidden"
+                        />
                       </div>
                     );
                   })()}
