@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Property, Tenant, RentalHistory, PaymentRecord, UtilityPaymentRecord, RentAdjustment } from '@/types';
-import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star, History } from 'lucide-react';
+import { X, MapPin, Bed, Bath, Car, Calendar, TrendingUp, DollarSign, Package, UserPlus, Edit2, Edit, Trash2, CreditCard, Check, Clock, AlertTriangle, Droplets, Zap, Flame, Building, Receipt, Users, Star, History, FileText, Download } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1148,6 +1148,62 @@ export function PropertyDetailModal({
                       <span className="text-foreground">{currentTenant.email}</span>
                     </div>
                   </div>
+
+                  {/* Contract Details */}
+                  {(() => {
+                    const activeRental = rentalHistoryState.find(r => r.tenantId === currentProperty.currentTenantId && !r.endDate);
+                    if (!activeRental) return null;
+                    return (
+                      <div className="mt-4 pt-4 border-t border-border space-y-3">
+                        <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm">
+                          <FileText className="w-4 h-4 text-primary" />
+                          Contrato
+                        </h4>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Início</span>
+                          <span className="text-foreground">{new Date(activeRental.startDate).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        {activeRental.contractEndDate && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Término</span>
+                            <span className="text-foreground">{new Date(activeRental.contractEndDate).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        )}
+                        {activeRental.contractDurationMonths && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Duração</span>
+                            <span className="text-foreground">{activeRental.contractDurationMonths} meses</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Aluguel</span>
+                          <span className="font-medium text-foreground">{formatCurrency(activeRental.monthlyRent)}/mês</span>
+                        </div>
+                        {activeRental.contractFileName && activeRental.contractFileBase64 && (
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText className="w-4 h-4 text-primary shrink-0" />
+                              <span className="text-sm text-foreground truncate">{activeRental.contractFileName}</span>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0 gap-1"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = activeRental.contractFileBase64!;
+                                link.download = activeRental.contractFileName!;
+                                link.click();
+                              }}
+                            >
+                              <Download className="w-3 h-3" />
+                              Baixar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="text-center py-8 bg-secondary/30 rounded-xl">
@@ -1184,9 +1240,28 @@ export function PropertyDetailModal({
                             <p className="font-medium text-foreground">{tenant?.name || 'Inquilino Removido'}</p>
                             <p className="text-sm text-muted-foreground">
                               {new Date(rental.startDate).toLocaleDateString('pt-BR')} - {rental.endDate ? new Date(rental.endDate).toLocaleDateString('pt-BR') : 'Atual'}
+                              {rental.contractDurationMonths && ` • ${rental.contractDurationMonths} meses`}
                             </p>
                           </div>
-                          <span className="text-foreground">{formatCurrency(rental.monthlyRent)}/mês</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-foreground">{formatCurrency(rental.monthlyRent)}/mês</span>
+                            {rental.contractFileName && rental.contractFileBase64 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                title="Baixar contrato"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = rental.contractFileBase64!;
+                                  link.download = rental.contractFileName!;
+                                  link.click();
+                                }}
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
