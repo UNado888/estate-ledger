@@ -362,7 +362,7 @@ export function AssignTenantModal({
               Cancelar
             </Button>
             <Button type="submit" disabled={!selectedTenant}>
-              Vincular Inquilino
+              {isRenewal ? 'Renovar Contrato' : 'Vincular Inquilino'}
             </Button>
           </div>
         </form>
