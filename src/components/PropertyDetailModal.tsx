@@ -1451,16 +1451,53 @@ export function PropertyDetailModal({
               )}
 
               {/* Add Tenant Button if there's already one */}
-              {currentTenant && (
-                <Button 
-                  onClick={() => setShowAssignTenant(true)} 
-                  variant="outline"
-                  className="w-full gap-2"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  Trocar Inquilino
-                </Button>
-              )}
+              {currentTenant && (() => {
+                const activeRental = rentalHistoryState.find(r => r.tenantId === currentProperty.currentTenantId && !r.endDate);
+                const latePayments = activeRental?.paymentHistory.filter(p => p.status === 'late').length || 0;
+                const pendingPayments = activeRental?.paymentHistory.filter(p => p.status === 'pending').length || 0;
+                const hasPendencies = latePayments > 0 || pendingPayments > 0;
+
+                return (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="w-full gap-2">
+                        <UserPlus className="w-4 h-4" />
+                        Trocar Inquilino
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Trocar inquilino?</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                          <div>
+                            <p>O contrato atual com <strong>{currentTenant.name}</strong> será encerrado e você poderá vincular um novo inquilino.</p>
+                            {hasPendencies && (
+                              <div className="mt-2 p-3 rounded-lg border border-warning/30 bg-warning/5 text-sm">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <AlertTriangle className="w-4 h-4 text-warning" />
+                                  <span className="font-medium text-warning">Pendências encontradas</span>
+                                </div>
+                                <p className="text-muted-foreground">
+                                  {latePayments > 0 && <span className="text-destructive font-medium">{latePayments} pagamento(s) atrasado(s)</span>}
+                                  {latePayments > 0 && pendingPayments > 0 && ' e '}
+                                  {pendingPayments > 0 && <span className="text-warning font-medium">{pendingPayments} pagamento(s) pendente(s)</span>}
+                                  {'. '}Essas pendências serão mantidas no histórico.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => setShowAssignTenant(true)}>
+                          Sim, trocar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                );
+              })()}
 
               {/* Rental History */}
               <div className="bg-secondary/30 rounded-xl p-5">
