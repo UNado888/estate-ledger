@@ -362,14 +362,41 @@ export function PropertyDetailModal({
       );
     }
 
-    // Add new rental history entry
+    // Generate payment records for the contract period
+    const payments: PaymentRecord[] = [];
+    const durationMonths = rentalData.contractDurationMonths || 12;
+    const start = new Date(rentalData.startDate);
+    for (let i = 0; i < durationMonths; i++) {
+      const paymentDate = new Date(start);
+      paymentDate.setMonth(paymentDate.getMonth() + i);
+      const month = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
+      const dueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), 5); // Due on 5th
+      const now = new Date();
+      let status: 'paid' | 'pending' | 'late' = 'pending';
+      if (dueDate < now && paymentDate.getMonth() !== now.getMonth()) {
+        status = 'late';
+      }
+      payments.push({
+        id: `${Date.now()}-${i}`,
+        month,
+        dueDate: dueDate.toISOString().split('T')[0],
+        amount: rentalData.monthlyRent,
+        status,
+      });
+    }
+
+    // Add new rental history entry with generated payments
     const newRental: RentalHistory = {
       id: Date.now().toString(),
       propertyId: rentalData.propertyId,
       tenantId: rentalData.tenantId,
       startDate: rentalData.startDate,
       monthlyRent: rentalData.monthlyRent,
-      paymentHistory: [],
+      contractDurationMonths: rentalData.contractDurationMonths,
+      contractEndDate: rentalData.contractEndDate,
+      contractFileName: rentalData.contractFileName,
+      contractFileBase64: rentalData.contractFileBase64,
+      paymentHistory: payments,
     };
     setRentalHistoryState(prev => [newRental, ...prev]);
 
@@ -382,6 +409,7 @@ export function PropertyDetailModal({
     };
     setCurrentProperty(updatedProperty);
     onUpdateProperty?.(updatedProperty);
+    setIsRenewing(false);
   };
 
   const handleRemoveTenant = () => {
