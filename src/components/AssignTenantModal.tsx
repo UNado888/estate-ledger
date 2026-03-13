@@ -160,15 +160,18 @@ export function AssignTenantModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-card">
         <DialogHeader>
           <DialogTitle className="text-xl font-display flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" />
-            Vincular Inquilino
+            {isRenewal ? 'Renovar Contrato' : 'Vincular Inquilino'}
           </DialogTitle>
           <DialogDescription>
-            Adicionar inquilino ao imóvel: {propertyName}
+            {isRenewal 
+              ? `Renovar contrato do imóvel: ${propertyName}. O contrato anterior será encerrado e mantido no histórico.`
+              : `Adicionar inquilino ao imóvel: ${propertyName}`
+            }
           </DialogDescription>
         </DialogHeader>
 
