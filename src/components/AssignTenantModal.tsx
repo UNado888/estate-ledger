@@ -146,7 +146,10 @@ export function AssignTenantModal({
       contractFileBase64: contractFile?.base64,
     });
 
-    toast.success(`${selectedTenant.name} vinculado ao imóvel com sucesso!`);
+    toast.success(isRenewal 
+      ? `Contrato renovado com ${selectedTenant.name}!` 
+      : `${selectedTenant.name} vinculado ao imóvel com sucesso!`
+    );
     onClose();
     
     // Reset
