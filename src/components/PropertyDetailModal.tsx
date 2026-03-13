@@ -1218,28 +1218,87 @@ export function PropertyDetailModal({
               {/* Current Tenant */}
               {currentTenant ? (
                 <div className="bg-secondary/30 rounded-xl p-5">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="font-semibold text-foreground">Inquilino Atual</h3>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setIsRenewing(true)}
-                        className="gap-1"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        Renovar Contrato
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleRemoveTenant}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        Encerrar Contrato
-                      </Button>
-                    </div>
-                  </div>
+                  {(() => {
+                    const activeRental = rentalHistoryState.find(r => r.tenantId === currentProperty.currentTenantId && !r.endDate);
+                    const latePayments = activeRental?.paymentHistory.filter(p => p.status === 'late').length || 0;
+                    const pendingPayments = activeRental?.paymentHistory.filter(p => p.status === 'pending').length || 0;
+                    const hasPendencies = latePayments > 0 || pendingPayments > 0;
+
+                    const PendencyWarning = () => hasPendencies ? (
+                      <div className="mt-2 p-3 rounded-lg border border-warning/30 bg-warning/5 text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <AlertTriangle className="w-4 h-4 text-warning" />
+                          <span className="font-medium text-warning">Pendências encontradas</span>
+                        </div>
+                        <p className="text-muted-foreground">
+                          {latePayments > 0 && <span className="text-destructive font-medium">{latePayments} pagamento(s) atrasado(s)</span>}
+                          {latePayments > 0 && pendingPayments > 0 && ' e '}
+                          {pendingPayments > 0 && <span className="text-warning font-medium">{pendingPayments} pagamento(s) pendente(s)</span>}
+                          {'. '}Essas pendências serão mantidas no histórico.
+                        </p>
+                      </div>
+                    ) : null;
+
+                    return (
+                      <>
+                        <div className="flex justify-between items-start mb-4">
+                          <h3 className="font-semibold text-foreground">Inquilino Atual</h3>
+                          <div className="flex items-center gap-2">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="gap-1">
+                                  <FileText className="w-3.5 h-3.5" />
+                                  Renovar Contrato
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Renovar contrato?</AlertDialogTitle>
+                                  <AlertDialogDescription asChild>
+                                    <div>
+                                      <p>O contrato atual com <strong>{currentTenant.name}</strong> será encerrado e mantido no histórico. Um novo contrato será criado com novos termos.</p>
+                                      <PendencyWarning />
+                                    </div>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => setIsRenewing(true)}>
+                                    Sim, renovar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                                  Encerrar Contrato
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Encerrar contrato?</AlertDialogTitle>
+                                  <AlertDialogDescription asChild>
+                                    <div>
+                                      <p>O contrato com <strong>{currentTenant.name}</strong> será encerrado e o imóvel ficará vago.</p>
+                                      <PendencyWarning />
+                                    </div>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleRemoveTenant} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Sim, encerrar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Nome</span>
