@@ -27,6 +27,9 @@ interface AssignTenantModalProps {
   propertyName: string;
   tenants: Tenant[];
   onAssign: (tenantId: string, rentalData: Omit<RentalHistory, 'id' | 'paymentHistory'>) => void;
+  preSelectedTenantId?: string;
+  isRenewal?: boolean;
+  previousRent?: number;
 }
 
 export function AssignTenantModal({ 
