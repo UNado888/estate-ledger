@@ -38,10 +38,23 @@ export function AssignTenantModal({
   propertyId, 
   propertyName,
   tenants,
-  onAssign 
+  onAssign,
+  preSelectedTenantId,
+  isRenewal,
+  previousRent,
 }: AssignTenantModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+
+  // Auto-select tenant for renewals
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen && preSelectedTenantId) {
+      const tenant = tenants.find(t => t.id === preSelectedTenantId);
+      if (tenant) setSelectedTenant(tenant);
+      if (previousRent) setMonthlyRent(String(previousRent));
+    }
+    if (!isOpen) onClose();
+  };
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [monthlyRent, setMonthlyRent] = useState('');
   const [contractDuration, setContractDuration] = useState('12');
