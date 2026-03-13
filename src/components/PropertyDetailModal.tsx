@@ -278,6 +278,7 @@ export function PropertyDetailModal({
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [showAssignTenant, setShowAssignTenant] = useState(false);
   const [isEditingContract, setIsEditingContract] = useState(false);
+  const [isRenewing, setIsRenewing] = useState(false);
   const contractFileRef = useRef<HTMLInputElement>(null);
   // showPaymentModal removed - payments now use inline pay button
   const [allRentalHistory, setAllRentalHistory] = useLocalStorage<RentalHistory[]>('imobiliaria-rental-history', mockRentalHistory);
@@ -1191,14 +1192,25 @@ export function PropertyDetailModal({
                 <div className="bg-secondary/30 rounded-xl p-5">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="font-semibold text-foreground">Inquilino Atual</h3>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleRemoveTenant}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      Encerrar Contrato
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsRenewing(true)}
+                        className="gap-1"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Renovar Contrato
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleRemoveTenant}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Encerrar Contrato
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
@@ -1677,12 +1689,15 @@ export function PropertyDetailModal({
 
       {/* Assign Tenant Modal */}
       <AssignTenantModal
-        open={showAssignTenant}
-        onClose={() => setShowAssignTenant(false)}
+        open={showAssignTenant || isRenewing}
+        onClose={() => { setShowAssignTenant(false); setIsRenewing(false); }}
         propertyId={currentProperty.id}
         propertyName={currentProperty.name}
         tenants={allTenants}
         onAssign={handleAssignTenant}
+        isRenewal={isRenewing}
+        preSelectedTenantId={isRenewing ? currentProperty.currentTenantId : undefined}
+        previousRent={isRenewing ? currentProperty.monthlyRent : undefined}
       />
 
     </div>

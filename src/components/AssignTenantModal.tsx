@@ -27,6 +27,9 @@ interface AssignTenantModalProps {
   propertyName: string;
   tenants: Tenant[];
   onAssign: (tenantId: string, rentalData: Omit<RentalHistory, 'id' | 'paymentHistory'>) => void;
+  preSelectedTenantId?: string;
+  isRenewal?: boolean;
+  previousRent?: number;
 }
 
 export function AssignTenantModal({ 
@@ -35,10 +38,23 @@ export function AssignTenantModal({
   propertyId, 
   propertyName,
   tenants,
-  onAssign 
+  onAssign,
+  preSelectedTenantId,
+  isRenewal,
+  previousRent,
 }: AssignTenantModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+
+  // Auto-select tenant for renewals
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen && preSelectedTenantId) {
+      const tenant = tenants.find(t => t.id === preSelectedTenantId);
+      if (tenant) setSelectedTenant(tenant);
+      if (previousRent) setMonthlyRent(String(previousRent));
+    }
+    if (!isOpen) onClose();
+  };
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [monthlyRent, setMonthlyRent] = useState('');
   const [contractDuration, setContractDuration] = useState('12');
@@ -130,7 +146,10 @@ export function AssignTenantModal({
       contractFileBase64: contractFile?.base64,
     });
 
-    toast.success(`${selectedTenant.name} vinculado ao imóvel com sucesso!`);
+    toast.success(isRenewal 
+      ? `Contrato renovado com ${selectedTenant.name}!` 
+      : `${selectedTenant.name} vinculado ao imóvel com sucesso!`
+    );
     onClose();
     
     // Reset
@@ -144,15 +163,18 @@ export function AssignTenantModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-card">
         <DialogHeader>
           <DialogTitle className="text-xl font-display flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" />
-            Vincular Inquilino
+            {isRenewal ? 'Renovar Contrato' : 'Vincular Inquilino'}
           </DialogTitle>
           <DialogDescription>
-            Adicionar inquilino ao imóvel: {propertyName}
+            {isRenewal 
+              ? `Renovar contrato do imóvel: ${propertyName}. O contrato anterior será encerrado e mantido no histórico.`
+              : `Adicionar inquilino ao imóvel: ${propertyName}`
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -343,7 +365,7 @@ export function AssignTenantModal({
               Cancelar
             </Button>
             <Button type="submit" disabled={!selectedTenant}>
-              Vincular Inquilino
+              {isRenewal ? 'Renovar Contrato' : 'Vincular Inquilino'}
             </Button>
           </div>
         </form>
