@@ -1689,12 +1689,15 @@ export function PropertyDetailModal({
 
       {/* Assign Tenant Modal */}
       <AssignTenantModal
-        open={showAssignTenant}
-        onClose={() => setShowAssignTenant(false)}
+        open={showAssignTenant || isRenewing}
+        onClose={() => { setShowAssignTenant(false); setIsRenewing(false); }}
         propertyId={currentProperty.id}
         propertyName={currentProperty.name}
         tenants={allTenants}
         onAssign={handleAssignTenant}
+        isRenewal={isRenewing}
+        preSelectedTenantId={isRenewing ? currentProperty.currentTenantId : undefined}
+        previousRent={isRenewing ? currentProperty.monthlyRent : undefined}
       />
 
     </div>
