@@ -146,6 +146,7 @@ export function AssignTenantModal({
       contractEndDate: endDate,
       contractFileName: contractFile?.name,
       contractFileBase64: contractFile?.base64,
+      securityDeposit: hasSecurityDeposit && Number(securityDeposit) > 0 ? Number(securityDeposit) : undefined,
     });
 
     toast.success(isRenewal 
