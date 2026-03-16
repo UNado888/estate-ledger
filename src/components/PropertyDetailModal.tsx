@@ -1571,6 +1571,8 @@ export function PropertyDetailModal({
 
                 const tenant = allTenants.find(t => t.id === activeRental.tenantId);
                 const payments = [...activeRental.paymentHistory].sort((a, b) => b.month.localeCompare(a.month));
+                const hasDeposit = activeRental.securityDeposit && activeRental.securityDeposit > 0;
+                const depositPaid = activeRental.securityDepositPaid === true;
                 const paidCount = payments.filter(p => p.status === 'paid').length;
                 const lateCount = payments.filter(p => p.status === 'late').length;
                 const pendingCount = payments.filter(p => p.status === 'pending').length;
@@ -1590,6 +1592,16 @@ export function PropertyDetailModal({
                     })
                   );
                   toast.success('Pagamento registrado como pago!');
+                };
+
+                const handleMarkDepositPaid = () => {
+                  setRentalHistoryState(prev =>
+                    prev.map(r => {
+                      if (r.id !== activeRental.id) return r;
+                      return { ...r, securityDepositPaid: true };
+                    })
+                  );
+                  toast.success('Caução registrado como pago!');
                 };
 
                 const handleChangeAmount = (paymentId: string, newAmount: number, type: 'reajuste' | 'juros_multa', notes?: string) => {
@@ -1737,6 +1749,47 @@ export function PropertyDetailModal({
                               </div>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Security Deposit (Caução) */}
+                    {hasDeposit && (
+                      <div className="bg-secondary/30 rounded-xl p-5">
+                        <h3 className="font-semibold text-foreground mb-4">Caução</h3>
+                        <div className={cn(
+                          "flex items-center justify-between p-3 rounded-lg border",
+                          depositPaid
+                            ? "border-success/30 bg-success/5"
+                            : "border-warning/30 bg-warning/5"
+                        )}>
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center",
+                              depositPaid ? "bg-success/20" : "bg-warning/20"
+                            )}>
+                              {depositPaid ? (
+                                <Check className="w-4 h-4 text-success" />
+                              ) : (
+                                <Clock className="w-4 h-4 text-warning" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">Caução</p>
+                              <p className="text-xs text-muted-foreground">
+                                {depositPaid ? 'Pago' : 'Pendente'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-foreground">{formatCurrency(activeRental.securityDeposit!)}</span>
+                            {!depositPaid && (
+                              <Button size="sm" variant="outline" className="gap-1 text-success border-success/30 hover:bg-success/10" onClick={handleMarkDepositPaid}>
+                                <Check className="w-3.5 h-3.5" />
+                                Pagar
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
