@@ -59,6 +59,8 @@ export function AssignTenantModal({
   const [monthlyRent, setMonthlyRent] = useState('');
   const [contractDuration, setContractDuration] = useState('12');
   const [contractEndDate, setContractEndDate] = useState('');
+  const [hasSecurityDeposit, setHasSecurityDeposit] = useState(false);
+  const [securityDeposit, setSecurityDeposit] = useState('');
   const [contractFile, setContractFile] = useState<{ name: string; base64: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
