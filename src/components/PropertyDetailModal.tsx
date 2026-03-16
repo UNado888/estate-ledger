@@ -1598,7 +1598,7 @@ export function PropertyDetailModal({
                   setRentalHistoryState(prev =>
                     prev.map(r => {
                       if (r.id !== activeRental.id) return r;
-                      return { ...r, securityDepositPaid: true } as any;
+                      return { ...r, securityDepositPaid: true };
                     })
                   );
                   toast.success('Caução registrado como pago!');
