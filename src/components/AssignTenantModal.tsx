@@ -59,6 +59,8 @@ export function AssignTenantModal({
   const [monthlyRent, setMonthlyRent] = useState('');
   const [contractDuration, setContractDuration] = useState('12');
   const [contractEndDate, setContractEndDate] = useState('');
+  const [hasSecurityDeposit, setHasSecurityDeposit] = useState(false);
+  const [securityDeposit, setSecurityDeposit] = useState('');
   const [contractFile, setContractFile] = useState<{ name: string; base64: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,6 +146,7 @@ export function AssignTenantModal({
       contractEndDate: endDate,
       contractFileName: contractFile?.name,
       contractFileBase64: contractFile?.base64,
+      securityDeposit: hasSecurityDeposit && Number(securityDeposit) > 0 ? Number(securityDeposit) : undefined,
     });
 
     toast.success(isRenewal 
@@ -159,6 +162,8 @@ export function AssignTenantModal({
     setContractDuration('12');
     setContractEndDate('');
     setContractFile(null);
+    setHasSecurityDeposit(false);
+    setSecurityDeposit('');
     setStartDate(new Date().toISOString().split('T')[0]);
   };
 
@@ -315,6 +320,34 @@ export function AssignTenantModal({
                     onChange={(e) => setMonthlyRent(e.target.value)}
                   />
                 </div>
+              </div>
+
+              {/* Security Deposit (Caução) */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="hasSecurityDeposit"
+                    checked={hasSecurityDeposit}
+                    onChange={(e) => setHasSecurityDeposit(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="hasSecurityDeposit" className="cursor-pointer">
+                    Possui Caução
+                  </Label>
+                </div>
+                {hasSecurityDeposit && (
+                  <div className="space-y-2 pl-7">
+                    <Label htmlFor="securityDeposit">Valor do Caução (R$)</Label>
+                    <Input
+                      id="securityDeposit"
+                      type="number"
+                      placeholder="0,00"
+                      value={securityDeposit}
+                      onChange={(e) => setSecurityDeposit(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Contract File Upload */}
