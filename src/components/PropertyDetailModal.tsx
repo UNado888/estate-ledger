@@ -1594,6 +1594,16 @@ export function PropertyDetailModal({
                   toast.success('Pagamento registrado como pago!');
                 };
 
+                const handleMarkDepositPaid = () => {
+                  setRentalHistoryState(prev =>
+                    prev.map(r => {
+                      if (r.id !== activeRental.id) return r;
+                      return { ...r, securityDepositPaid: true } as any;
+                    })
+                  );
+                  toast.success('Caução registrado como pago!');
+                };
+
                 const handleChangeAmount = (paymentId: string, newAmount: number, type: 'reajuste' | 'juros_multa', notes?: string) => {
                   const targetPayment = activeRental.paymentHistory.find(p => p.id === paymentId);
                   if (!targetPayment) return;
