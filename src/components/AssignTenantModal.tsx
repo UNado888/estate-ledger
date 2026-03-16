@@ -322,6 +322,34 @@ export function AssignTenantModal({
                 </div>
               </div>
 
+              {/* Security Deposit (Caução) */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="hasSecurityDeposit"
+                    checked={hasSecurityDeposit}
+                    onChange={(e) => setHasSecurityDeposit(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="hasSecurityDeposit" className="cursor-pointer">
+                    Possui Caução
+                  </Label>
+                </div>
+                {hasSecurityDeposit && (
+                  <div className="space-y-2 pl-7">
+                    <Label htmlFor="securityDeposit">Valor do Caução (R$)</Label>
+                    <Input
+                      id="securityDeposit"
+                      type="number"
+                      placeholder="0,00"
+                      value={securityDeposit}
+                      onChange={(e) => setSecurityDeposit(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Contract File Upload */}
               <div className="space-y-2">
                 <Label>Anexar Contrato (PDF, imagem ou documento)</Label>

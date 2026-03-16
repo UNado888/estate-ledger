@@ -401,6 +401,7 @@ export function PropertyDetailModal({
       contractEndDate: rentalData.contractEndDate,
       contractFileName: rentalData.contractFileName,
       contractFileBase64: rentalData.contractFileBase64,
+      securityDeposit: rentalData.securityDeposit,
       paymentHistory: payments,
     };
     setRentalHistoryState(prev => [newRental, ...prev]);
