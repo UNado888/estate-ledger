@@ -162,6 +162,8 @@ export function AssignTenantModal({
     setContractDuration('12');
     setContractEndDate('');
     setContractFile(null);
+    setHasSecurityDeposit(false);
+    setSecurityDeposit('');
     setStartDate(new Date().toISOString().split('T')[0]);
   };
 
