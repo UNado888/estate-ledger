@@ -64,6 +64,7 @@ export interface RentalHistory {
   contractFileName?: string;
   contractFileBase64?: string;
   securityDeposit?: number;
+  securityDepositPaid?: boolean;
   paymentHistory: PaymentRecord[];
 }
 
