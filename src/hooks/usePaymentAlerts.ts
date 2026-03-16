@@ -102,6 +102,30 @@ export function usePaymentAlerts({ properties, rentalHistory, utilityPayments = 
           });
         }
       }
+      // Contract expiration alerts (30/60/90 days before)
+      const contractEnd = rental.contractEndDate ? new Date(rental.contractEndDate) : null;
+      if (contractEnd && contractEnd > today) {
+        const daysUntilEnd = differenceInDays(contractEnd, today);
+        const thresholds = [90, 60, 30] as const;
+        
+        for (const threshold of thresholds) {
+          if (daysUntilEnd <= threshold) {
+            const severity = threshold === 30 ? 'high' : threshold === 60 ? 'medium' : 'low';
+            generatedAlerts.push({
+              id: `contract-expiry-${rental.id}-${threshold}`,
+              type: 'contract',
+              severity,
+              title: 'Contrato Próximo do Vencimento',
+              message: `O contrato do imóvel "${property.name}" vence em ${daysUntilEnd} dia${daysUntilEnd !== 1 ? 's' : ''} (${format(contractEnd, 'dd/MM/yyyy')}). Considere renovar ou encerrar.`,
+              propertyId: property.id,
+              tenantId: rental.tenantId,
+              date: today.toISOString(),
+              read: false,
+            });
+            break; // Only show the most urgent threshold
+          }
+        }
+      }
     });
     
     // Check for vacant properties (vacancy alerts)
