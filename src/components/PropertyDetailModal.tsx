@@ -1753,6 +1753,47 @@ export function PropertyDetailModal({
                       </div>
                     )}
 
+                    {/* Security Deposit (Caução) */}
+                    {hasDeposit && (
+                      <div className="bg-secondary/30 rounded-xl p-5">
+                        <h3 className="font-semibold text-foreground mb-4">Caução</h3>
+                        <div className={cn(
+                          "flex items-center justify-between p-3 rounded-lg border",
+                          depositPaid
+                            ? "border-success/30 bg-success/5"
+                            : "border-warning/30 bg-warning/5"
+                        )}>
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center",
+                              depositPaid ? "bg-success/20" : "bg-warning/20"
+                            )}>
+                              {depositPaid ? (
+                                <Check className="w-4 h-4 text-success" />
+                              ) : (
+                                <Clock className="w-4 h-4 text-warning" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">Caução</p>
+                              <p className="text-xs text-muted-foreground">
+                                {depositPaid ? 'Pago' : 'Pendente'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-foreground">{formatCurrency(activeRental.securityDeposit!)}</span>
+                            {!depositPaid && (
+                              <Button size="sm" variant="outline" className="gap-1 text-success border-success/30 hover:bg-success/10" onClick={handleMarkDepositPaid}>
+                                <Check className="w-3.5 h-3.5" />
+                                Pagar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Payment List */}
                     <div className="bg-secondary/30 rounded-xl p-5">
                       <h3 className="font-semibold text-foreground mb-4">Pagamentos Mensais</h3>
