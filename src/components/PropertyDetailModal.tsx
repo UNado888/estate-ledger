@@ -1394,6 +1394,12 @@ export function PropertyDetailModal({
                           <span className="text-muted-foreground">Aluguel</span>
                           <span className="font-medium text-foreground">{formatCurrency(activeRental.monthlyRent)}/mês</span>
                         </div>
+                        {activeRental.securityDeposit && activeRental.securityDeposit > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Caução</span>
+                            <span className="font-medium text-foreground">{formatCurrency(activeRental.securityDeposit)}</span>
+                          </div>
+                        )}
                         {activeRental.contractFileName && activeRental.contractFileBase64 ? (
                           <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
                             <div className="flex items-center gap-2 min-w-0">
