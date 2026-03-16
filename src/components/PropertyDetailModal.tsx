@@ -363,17 +363,22 @@ export function PropertyDetailModal({
     }
 
     // Generate payment records for the contract period
+    // Due day matches the contract start date's day
     const payments: PaymentRecord[] = [];
     const durationMonths = rentalData.contractDurationMonths || 12;
     const start = new Date(rentalData.startDate);
+    const dueDay = start.getDate();
     for (let i = 0; i < durationMonths; i++) {
       const paymentDate = new Date(start);
       paymentDate.setMonth(paymentDate.getMonth() + i);
       const month = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
-      const dueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), 5); // Due on 5th
+      // Use the contract start day as the due day, clamped to month's max days
+      const maxDay = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 0).getDate();
+      const actualDueDay = Math.min(dueDay, maxDay);
+      const dueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), actualDueDay);
       const now = new Date();
       let status: 'paid' | 'pending' | 'late' = 'pending';
-      if (dueDate < now && paymentDate.getMonth() !== now.getMonth()) {
+      if (dueDate < now && !(paymentDate.getFullYear() === now.getFullYear() && paymentDate.getMonth() === now.getMonth())) {
         status = 'late';
       }
       payments.push({
