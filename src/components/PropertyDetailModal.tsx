@@ -1572,7 +1572,7 @@ export function PropertyDetailModal({
                 const tenant = allTenants.find(t => t.id === activeRental.tenantId);
                 const payments = [...activeRental.paymentHistory].sort((a, b) => b.month.localeCompare(a.month));
                 const hasDeposit = activeRental.securityDeposit && activeRental.securityDeposit > 0;
-                const depositPaid = (activeRental as any).securityDepositPaid === true;
+                const depositPaid = activeRental.securityDepositPaid === true;
                 const paidCount = payments.filter(p => p.status === 'paid').length;
                 const lateCount = payments.filter(p => p.status === 'late').length;
                 const pendingCount = payments.filter(p => p.status === 'pending').length;
