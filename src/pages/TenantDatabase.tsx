@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Search, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { TenantCard } from '@/components/TenantCard';
+import { TenantCard } from '@/components/tenants/TenantCard';
 import { mockTenants as initialTenants } from '@/data/mockData';
 import { Tenant } from '@/types';
 import {
