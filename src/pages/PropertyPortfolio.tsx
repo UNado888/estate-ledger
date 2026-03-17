@@ -13,9 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PropertyDetailModal } from '@/components/PropertyDetailModal';
-import { AddPropertyModal } from '@/components/AddPropertyModal';
-import { EditPropertyModal } from '@/components/EditPropertyModal';
+import { PropertyDetailModal } from '@/components/properties/PropertyDetailModal';
+import { AddPropertyModal } from '@/components/properties/AddPropertyModal';
+import { EditPropertyModal } from '@/components/properties/EditPropertyModal';
 import { toast } from 'sonner';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 

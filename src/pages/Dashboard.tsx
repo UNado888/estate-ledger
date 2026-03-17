@@ -6,9 +6,9 @@ import {
   AlertTriangle,
   PieChart
 } from 'lucide-react';
-import { StatCard } from '@/components/StatCard';
-import { PropertyCard } from '@/components/PropertyCard';
-import { AlertItem } from '@/components/AlertItem';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { PropertyCard } from '@/components/properties/PropertyCard';
+import { AlertItem } from '@/components/dashboard/AlertItem';
 import { mockProperties as initialProperties, mockTenants as initialTenants, mockFinancialHistory, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
 import { useLocalStorage } from '@/hooks/useLocalStorage';

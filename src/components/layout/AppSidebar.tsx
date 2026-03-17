@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { mockProperties as initialProperties, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
-import { NotificationsPanel } from '@/components/NotificationsPanel';
+import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
 import { Alert, Property, RentalHistory, UtilityPaymentRecord } from '@/types';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 

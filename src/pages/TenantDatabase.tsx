@@ -12,9 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AddTenantModal } from '@/components/AddTenantModal';
-import { EditTenantModal } from '@/components/EditTenantModal';
-import { TenantDetailModal } from '@/components/TenantDetailModal';
+import { AddTenantModal } from '@/components/tenants/AddTenantModal';
+import { EditTenantModal } from '@/components/tenants/EditTenantModal';
+import { TenantDetailModal } from '@/components/tenants/TenantDetailModal';
 import { toast } from 'sonner';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
