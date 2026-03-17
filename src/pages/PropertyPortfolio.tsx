@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Search, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PropertyCard } from '@/components/PropertyCard';
+import { PropertyCard } from '@/components/properties/PropertyCard';
 import { mockProperties as initialProperties, mockTenants as initialTenants, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
 import { Property, Tenant, RentalHistory, UtilityPaymentRecord } from '@/types';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
@@ -13,9 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PropertyDetailModal } from '@/components/PropertyDetailModal';
-import { AddPropertyModal } from '@/components/AddPropertyModal';
-import { EditPropertyModal } from '@/components/EditPropertyModal';
+import { PropertyDetailModal } from '@/components/properties/PropertyDetailModal';
+import { AddPropertyModal } from '@/components/properties/AddPropertyModal';
+import { EditPropertyModal } from '@/components/properties/EditPropertyModal';
 import { toast } from 'sonner';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
