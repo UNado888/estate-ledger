@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Search, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PropertyCard } from '@/components/PropertyCard';
+import { PropertyCard } from '@/components/properties/PropertyCard';
 import { mockProperties as initialProperties, mockTenants as initialTenants, mockRentalHistory as initialRentalHistory } from '@/data/mockData';
 import { Property, Tenant, RentalHistory, UtilityPaymentRecord } from '@/types';
 import { usePaymentAlerts } from '@/hooks/usePaymentAlerts';
