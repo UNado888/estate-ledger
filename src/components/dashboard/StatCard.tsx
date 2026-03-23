@@ -63,4 +63,6 @@ export const StatCard = forwardRef<HTMLDivElement, StatCardProps>(({
       </div>
     </div>
   );
-}
+});
+
+StatCard.displayName = 'StatCard';
