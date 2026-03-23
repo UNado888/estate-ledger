@@ -535,7 +535,7 @@ export function PropertyDetailModal({
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-88px)] p-6">
+        <div className="overflow-y-auto max-h-[calc(85vh-88px)] p-6">
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="mb-6 flex-wrap">
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
