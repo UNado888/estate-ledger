@@ -295,6 +295,19 @@ export function PropertyDetailModal({
   const [allUtilityPayments, setAllUtilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   const [adjustmentHistory, setAdjustmentHistory] = useLocalStorage<RentAdjustment[]>(`imobiliaria-adjustments-${property.id}`, []);
   
+  // Lock body scroll and handle Escape key
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   // Filter utility payments for this property
   const utilityPayments = allUtilityPayments.filter(p => p.propertyId === property.id);
   
@@ -447,7 +460,7 @@ export function PropertyDetailModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative bg-card border border-border rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-fade-in">
+      <div className="relative bg-card border border-border rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden animate-fade-in shadow-2xl">
         {/* Header */}
         <div className="p-6 border-b border-border flex items-start justify-between">
           <div>
@@ -522,7 +535,7 @@ export function PropertyDetailModal({
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-88px)] p-6">
+        <div className="overflow-y-auto max-h-[calc(85vh-88px)] p-6">
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="mb-6 flex-wrap">
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
