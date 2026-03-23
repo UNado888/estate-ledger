@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface StatCardProps {
@@ -14,7 +14,7 @@ interface StatCardProps {
   className?: string;
 }
 
-export function StatCard({ 
+export const StatCard = forwardRef<HTMLDivElement, StatCardProps>(({ 
   title, 
   value, 
   subtitle, 
@@ -22,11 +22,11 @@ export function StatCard({
   trend, 
   variant = 'default',
   className 
-}: StatCardProps) {
+}, ref) => {
   const trendColor = trend && trend.value >= 0 ? 'stat-positive' : 'stat-negative';
   
   return (
-    <div className={cn(
+    <div ref={ref} className={cn(
       "bg-card rounded-xl p-5 border border-border card-hover",
       className
     )}>
