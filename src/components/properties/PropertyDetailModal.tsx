@@ -295,6 +295,19 @@ export function PropertyDetailModal({
   const [allUtilityPayments, setAllUtilityPayments] = useLocalStorage<UtilityPaymentRecord[]>('imobiliaria-utility-payments', []);
   const [adjustmentHistory, setAdjustmentHistory] = useLocalStorage<RentAdjustment[]>(`imobiliaria-adjustments-${property.id}`, []);
   
+  // Lock body scroll and handle Escape key
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   // Filter utility payments for this property
   const utilityPayments = allUtilityPayments.filter(p => p.propertyId === property.id);
   
